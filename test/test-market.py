@@ -13,32 +13,11 @@ from random import randint
 def fakeMarket(store = dict()):
 	store["plns"] = 200000000
 	store["cashout_price"] = 250000000
-	store["btcs"] = (store["plns"] *
-			100000000000) // (store["cashout_price"] * 996)
+	store["btcs"] = (store["plns"] * 100000000) // store["cashout_price"]
 	store["orders_sell"] = dict()
 	store["orders_buy"] = dict()
 	store["market_price"] = None
 	store["market_price_ts"] = None
-	def info():
-		o_plns = 0
-		for i in store["orders_buy"]:
-			o_plns = o_plns + store["orders_buy"][i]
-		o_btcs = 0
-		for i in store["orders_sell"]:
-			o_btcs = o_btcs + store["orders_sell"][i]
-		sys.stderr.write(
-			"[Market] "+
-			("%0.2f + %0.2f mBTC, %0.2f + %0.2f PLN, "+
-				"cash out %0.2f PLN at %0.2f PLN/BTC\n") %
-			(
-				store["btcs"]*0.00001, o_btcs*0.00001,
-				store["plns"]*0.00001, o_plns*0.00001,
-				0.00001*
-					(store["plns"] + o_plns +
-					((store["btcs"]+o_btcs) * store["cashout_price"] * 996) // 100000000000),
-				store["cashout_price"]*0.00001
-			)
-		)
 	def transactionSell(price, marketpr = False):
 		btcs = store["orders_sell"][price]
 		if (btcs > 1000000) and (randint(1, 10) <= 2) and (not marketpr):
@@ -131,9 +110,9 @@ def fakeMarket(store = dict()):
 	def getPrice():
 		return store["market_price"]
 	return onPrice, sell, buy, orders, cancelBuy, \
-		cancelSell, getPrice, info
+		cancelSell, getPrice
 onPriceChange, apiSell, apiBuy, apiGetOrders, \
-	apiCancelBuy, apiCancelSell, apiGetPrice, printInfo = fakeMarket()
+	apiCancelBuy, apiCancelSell, apiGetPrice = fakeMarket()
 
 def passTime(fn, store = dict()):
 	store["step"] = 600
@@ -229,11 +208,9 @@ try:
 		sys.stderr.write("\nUsage:\n\ttest-market.py <log-file>\n\n")
 	else:
 		passTime, getTime = passTime(sys.argv[1])
-		printInfo()
 		for line in sys.stdin:
 			if not cmdLine(line.strip()):
 				break
-		printInfo()
 except KeyboardInterrupt:
 	sys.stderr.write("\n[Market] Interrupted\n")
 	sys.exit(1)

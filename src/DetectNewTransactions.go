@@ -13,6 +13,11 @@ import (
 func DetectNewTransactions(prev, cur OrderList) ([]Transaction, error) {
 	var ret []Transaction
 	onTransaction := func(t Transaction) {
+		if t.gain >= 20 {
+			t.gain -= 10
+		} else if t.gain > 10 {
+			t.gain = 10
+		}
 		ret = append(ret, t)
 	}
 

@@ -29,7 +29,7 @@ func Run(market MarketController, saver DataSaver,
 	{
 		a, err := saver.Read("orders")
 		if (err == nil) && (len(a) > 0) {
-			if prev_orders.LoadData(a) != nil {
+			if err := prev_orders.LoadData(a); err != nil {
 				panic("could not parse order data: "+err.Error())
 			}
 		} else if err != nil {

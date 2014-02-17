@@ -40,7 +40,6 @@ func main() {
 			args ...string) (TextInterfaceController, error) {
 		var empty TextInterfaceController
 		cmd := exec.Command(executable, args...)
-		cmd.Stderr = os.Stderr
 		stdout, err := cmd.StdoutPipe()
 		if err != nil { return empty, err }
 		stdout_r := bufio.NewReader(stdout)
