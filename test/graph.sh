@@ -4,22 +4,11 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, version 2 or 3.
 
-O=$(cat grid.txt | grep '^[0-9 ]*$')
+O=$(cat grid.txt | grep '^[0-9 ]*$') || exit 1
 
-GRAPH_COLS=$(($(tput cols) - 20)) || exit 1
-TERM_ROWS=$(tput lines) || exit 1
-if ! [ $TERM_ROWS -ge 5 -a $GRAPH_COLS -ge 5 ]; then
-	echo "Error: invalid terminal size" 1>&2
-	exit 1
-fi
-GRAPH_ROWS=5
-while [ $(($GRAPH_ROWS*5)) -lt $(($TERM_ROWS-4)) ]; do
-	let GRAPH_ROWS=$GRAPH_ROWS*5
-done
-while [ $(($GRAPH_ROWS*2)) -lt $(($TERM_ROWS-4)) ]; do
-	let GRAPH_ROWS=$GRAPH_ROWS*2
-done
-let GRAPH_ROWS=$GRAPH_ROWS+1
+GRAPH_COLS=$(($COLUMNS - 15))
+[ $GRAPH_COLS -ge 5 ] || GRAPH_COLS=65
+GRAPH_ROWS=26
 
 MAXP=0
 while read buy_p sell_p buy_am sell_am; do

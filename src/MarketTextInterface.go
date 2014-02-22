@@ -13,16 +13,15 @@ import (
 
 func MarketTextInterface(market TextInterfaceController) MarketController {
 	return MarketController {
-		GetPrice: func() (PriceValue, Time, error) {
-			market.Writeln("price")
+		GetTime: func() (Time, error) {
+			market.Writeln("time")
 			line := market.Readln()
-			words := append(strings.Split(line, " "), "", "")
-			v1, err1 := strconv.ParseUint(words[1], 10, 64)
-			v2, err2 := strconv.ParseUint(words[2], 10, 64)
-			if (words[0] != "price") || (err1 != nil) || (err2 != nil) {
-				return 0, 0, fmt.Errorf("get price: %q", line)
+			words := append(strings.Split(line, " "), "")
+			v, err := strconv.ParseUint(words[1], 10, 64)
+			if (words[0] != "time") || (err != nil) {
+				return 0, fmt.Errorf("get time: %q", line)
 			}
-			return PriceValue(v1), Time(v2), nil
+			return Time(v), nil
 		},
 		GetOrders: func() (ret OrderList, err error) {
 			market.Writeln("orders")
@@ -59,6 +58,14 @@ func MarketTextInterface(market TextInterfaceController) MarketController {
 				return fmt.Errorf("cancel order: %q", line)
 			}
 			return nil
+		},
+		ValidOrder: func(o Order) (bool, error) {
+			cmd := fmt.Sprintf("valid %v %d %d", o.t, o.price, o.cost)
+			market.Writeln(cmd)
+			line := market.Readln()
+			if line == cmd { return true, nil }
+			if line == "in"+cmd { return false, nil }
+			return false, fmt.Errorf("valid order: %q", line)
 		},
 		Wait: func() error {
 			market.Writeln("wait")

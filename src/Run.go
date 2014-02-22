@@ -15,14 +15,16 @@ func Run(market MarketController, saver DataSaver,
 	defer market.Exit()
 	saver = CachedDataSaver(saver)
 
-	validOrder := func(o Order) bool {
-		// Warning: hard-coded values
-		if o.t == BUY {
-			return (o.cost >= 5000500)
-		} else {
-			return (o.cost >= MoneyValue(5000500).AfterBuy(o.price))
+	validOrder := func() func(Order) bool {
+		cache := make(map[Order]bool)
+		return func(o Order) bool {
+			if v, found := cache[o]; found { return v }
+			v, err := market.ValidOrder(o)
+			if err != nil { return false }
+			cache[o] = v
+			return v
 		}
-	}
+	}()
 
 	var prev_orders, prev_orders_alternate OrderList
 	has_alternate_orders := false
@@ -172,15 +174,16 @@ func Run(market MarketController, saver DataSaver,
 					}
 				}
 			}
-			log_status(fmt.Sprintf("Placed orders: buy %v/%v [+%v], "+
-				"sell %v/%v [+%v]", placed_b, all_b, invalid_b,
-				placed_s, all_s, invalid_s))
+			log_status(fmt.Sprintf("Placed orders: buy %v/%v [+%v/%v], "+
+				"sell %v/%v [+%v/%v]",
+				placed_b, all_b, prev_orders.am_for_b, invalid_b,
+				placed_s, all_s, prev_orders.am_for_s, invalid_s))
 		}
 		return true
 	}
 
 	for ! interrupted() {
-		_, ts, err := market.GetPrice()
+		ts, err := market.GetTime()
 		if err != nil { continue }
 
 		if ts < currentTime {

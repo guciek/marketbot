@@ -11,7 +11,7 @@ from urllib import request
 from random import randint
 
 def fakeMarket(store = dict()):
-	store["plns"] = 200000000
+	store["plns"] = 500000000
 	store["cashout_price"] = 250000000
 	store["btcs"] = (store["plns"] * 100000000) // store["cashout_price"]
 	store["orders_sell"] = dict()
@@ -59,8 +59,8 @@ def fakeMarket(store = dict()):
 		store["market_price_ts"] = ts
 		runTransactions()
 	def sell(price, btcs):
-		btcs += randint(-400, 400)
-		price += randint(-400, 400)
+		btcs += randint(-40, 40)
+		price += randint(-40, 40)
 		if btcs < 1: return False
 		if price < 10000000: return False
 		if store["btcs"] < btcs: return False
@@ -72,13 +72,13 @@ def fakeMarket(store = dict()):
 		runTransactions(True)
 		return True
 	def buy(price, plns):
-		plns += randint(-400, 400)
-		price += randint(-400, 400)
+		plns += randint(-40, 40)
+		price += randint(-40, 40)
 		if plns < 1: return False
 		if price < 1000000: return False
 		if store["plns"] < plns: return False
 		while price in store["orders_buy"]:
-			price = price + 1
+			price = price - 1
 		if plns < 5000000: return False
 		store["plns"] -= plns
 		store["orders_buy"][price] = plns
@@ -93,7 +93,7 @@ def fakeMarket(store = dict()):
 		return ret
 	def cancelSell(price, btcs):
 		if price in store["orders_sell"]:
-			if btcs != store["orders_sell"][price]:
+			if int(btcs) != int(store["orders_sell"][price]):
 				return False
 			del store["orders_sell"][price]
 			store["btcs"] += btcs
@@ -101,18 +101,15 @@ def fakeMarket(store = dict()):
 		return False
 	def cancelBuy(price, plns):
 		if price in store["orders_buy"]:
-			if plns != store["orders_buy"][price]:
+			if int(plns) != int(store["orders_buy"][price]):
 				return False
 			del store["orders_buy"][price]
 			store["plns"] += plns
 			return True
 		return False
-	def getPrice():
-		return store["market_price"]
-	return onPrice, sell, buy, orders, cancelBuy, \
-		cancelSell, getPrice
+	return onPrice, sell, buy, orders, cancelBuy, cancelSell
 onPriceChange, apiSell, apiBuy, apiGetOrders, \
-	apiCancelBuy, apiCancelSell, apiGetPrice = fakeMarket()
+	apiCancelBuy, apiCancelSell = fakeMarket()
 
 def passTime(fn, store = dict()):
 	store["step"] = 600
@@ -143,12 +140,11 @@ def cmdLine(line):
 	if line == "": return False
 	ret = True
 	line = line.split(" ")
-	if line[0] == "price":
+	if line[0] == "time":
 		if randint(1, 10) <= 2:
 			print("error")
 		else:
-			p = apiGetPrice()
-			print("price "+str(p)+" "+str(getTime()) if p else "error")
+			print("time "+str(getTime()))
 	elif line[0] == "wait":
 		ret = passTime()
 		print("ok wait" if ret else "exit")
@@ -156,34 +152,54 @@ def cmdLine(line):
 		if randint(1, 10) <= 2:
 			print("error")
 		else:
-			if apiSell(int(line[1]), int(line[2])) and (randint(1, 10) <= 9):
-				print("ok sell %d %d" % (int(line[1]), int(line[2])))
+			pr, am = int(line[1]), int(line[2])
+			if apiSell(pr, am) and (randint(1, 10) <= 9):
+				print("ok sell %d %d" % (pr, am))
 			else:
 				print("error")
 	elif line[0] == "buy":
 		if randint(1, 10) <= 2:
 			print("error")
 		else:
-			if apiBuy(int(line[1]), int(line[2])) and (randint(1, 10) <= 9):
-				print("ok buy %d %d" % (int(line[1]), int(line[2])))
+			pr, am = int(line[1]), int(line[2])
+			if apiBuy(pr, am) and (randint(1, 10) <= 9):
+				print("ok buy %d %d" % (pr, am))
 			else:
 				print("error")
 	elif line[0] == "cancel":
 		if randint(1, 10) <= 3:
 			print("error")
 		else:
+			pr, am = int(line[2]), int(line[3])
 			if line[1] == "sell":
-				if apiCancelSell(int(line[2]), int(line[3])
-						) and (randint(1, 10) <= 8):
-					print("ok cancel sell %d %d" % (int(line[2]), int(line[3])))
+				if apiCancelSell(pr, am) and (randint(1, 10) <= 8):
+					print("ok cancel sell %d %d" % (pr, am))
 				else:
 					print("error")
 			elif line[1] == "buy":
-				if apiCancelBuy(int(line[2]), int(line[3])
-						) and (randint(1, 10) <= 8):
-					print("ok cancel buy %d %d" % (int(line[2]), int(line[3])))
+				if apiCancelBuy(pr, am) and (randint(1, 10) <= 8):
+					print("ok cancel buy %d %d" % (pr, am))
 				else:
 					print("error")
+			else:
+				print("error")
+	elif line[0] == "valid":
+		if randint(1, 10) <= 3:
+			print("error")
+		else:
+			pr, am = int(line[2]), int(line[3])
+			if line[1] == "sell":
+				if am * pr >= 500000000000000:
+					print("valid sell %d %d" % (pr, am))
+				else:
+					print("invalid sell %d %d" % (pr, am))
+			elif line[1] == "buy":
+				if am >= 5000000:
+					print("valid buy %d %d" % (pr, am))
+				else:
+					print("invalid buy %d %d" % (pr, am))
+			else:
+				print("error")
 	elif line[0] == "orders":
 		if randint(1, 100) <= 1:
 			print("error")

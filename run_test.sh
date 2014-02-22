@@ -12,9 +12,33 @@ trap "rm -rf $TMPDIR" EXIT
 cp bot test/* "$TMPDIR" || exit 1
 cd "$TMPDIR" || exit 1
 
-echo "     buy_p     sell_p     buy_am    sell_am" > grid.txt
-P=1600; while [ $P -lt 3400 ]; do
-	let SELLP=$P+99
+COLS=$(tput cols) || COLS=80
+COLS=$(($COLS - 5))
+COLS=$(($COLS / 2))
+
+stat() {
+	COLUMNS=$COLS ./graph.sh
+	echo
+	./value.sh
+}
+
+formatcols() {
+	IFS=
+	while read l; do
+		if [ ${#l} -gt 0 ]; then
+			while [ ${#l} -gt 0 ]; do
+				printf "%-${COLS}s \n" "${l:0:${COLS}}"
+				l=${l:${COLS}}
+			done
+		else
+			echo
+		fi
+	done
+}
+
+echo "buy_p sell_p buy_am sell_am" > grid.txt
+P=2000; while [ $P -lt 3000 ]; do
+	let SELLP=$P+$(($P*3/100))
 	if [ $P -ge 2450 ]; then
 		BUY=0
 		SELL=$((10000000000/$SELLP))
@@ -22,27 +46,22 @@ P=1600; while [ $P -lt 3400 ]; do
 		BUY=10000000
 		SELL=0
 	fi
-	printf "% 10d % 10d % 10d % 10d\n" $P $SELLP $BUY $SELL
-	let P=$P+50
+	echo $P $SELLP $BUY $SELL
+	let P=$P+$(($P/200))
 done >> grid.txt
-cat grid.txt
 
 echo orders | ./test-market.py test-data.log | \
 	grep -v '^\.$' | grep -v '^orders:' > orders.txt
 
-echo
-./graph.sh
-echo
-./value.sh
-echo
+stat | formatcols > stat1.txt
 rm orders.txt
 
 ./bot ./test-market.py test-data.log || exit 1
 
+stat | formatcols > stat2.txt
+
 echo
-./graph.sh
-echo
-./value.sh
+paste stat1.txt stat2.txt
 echo
 
 exit 0
