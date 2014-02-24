@@ -15,16 +15,14 @@ func Run(market MarketController, saver DataSaver,
 	defer market.Exit()
 	saver = CachedDataSaver(saver)
 
-	validOrder := func() func(Order) bool {
-		cache := make(map[Order]bool)
-		return func(o Order) bool {
-			if v, found := cache[o]; found { return v }
-			v, err := market.ValidOrder(o)
-			if err != nil { return false }
-			cache[o] = v
-			return v
+	validOrder := func(o Order) bool {
+		// Warning: hard-coded values
+		if o.t == BUY {
+			return (o.cost >= 5000500)
+		} else {
+			return (o.cost >= MoneyValue(5000500).AfterBuy(o.price))
 		}
-	}()
+	}
 
 	var prev_orders, prev_orders_alternate OrderList
 	has_alternate_orders := false
@@ -74,7 +72,7 @@ func Run(market MarketController, saver DataSaver,
 	}()
 
 	update_transactions := func() bool {
-		market_orders, err := market.GetOrders()
+		market_orders, err := market.GetOrderList()
 		if err != nil { return false }
 
 		trans, err := DetectNewTransactions(prev_orders, market_orders)

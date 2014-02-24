@@ -25,10 +25,9 @@ type TextInterfaceController struct {
 
 type MarketController struct {
 	GetTime func() (Time, error)
-	GetOrders func() (OrderList, error)
+	GetOrderList func() (OrderList, error)
 	NewOrder func(o Order) error
 	CancelOrder func(o Order) error
-	ValidOrder func(o Order) (bool, error)
 	Wait func() error
 	Exit func() error
 }

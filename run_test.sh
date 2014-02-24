@@ -12,30 +12,6 @@ trap "rm -rf $TMPDIR" EXIT
 cp bot test/* "$TMPDIR" || exit 1
 cd "$TMPDIR" || exit 1
 
-COLS=$(tput cols) || COLS=80
-COLS=$(($COLS - 5))
-COLS=$(($COLS / 2))
-
-stat() {
-	COLUMNS=$COLS ./graph.sh
-	echo
-	./value.sh
-}
-
-formatcols() {
-	IFS=
-	while read l; do
-		if [ ${#l} -gt 0 ]; then
-			while [ ${#l} -gt 0 ]; do
-				printf "%-${COLS}s \n" "${l:0:${COLS}}"
-				l=${l:${COLS}}
-			done
-		else
-			echo
-		fi
-	done
-}
-
 echo "buy_p sell_p buy_am sell_am" > grid.txt
 P=2000; while [ $P -lt 3000 ]; do
 	let SELLP=$P+$(($P*3/100))
@@ -50,18 +26,6 @@ P=2000; while [ $P -lt 3000 ]; do
 	let P=$P+$(($P/200))
 done >> grid.txt
 
-echo orders | ./test-market.py test-data.log | \
-	grep -v '^\.$' | grep -v '^orders:' > orders.txt
-
-stat | formatcols > stat1.txt
-rm orders.txt
-
 ./bot ./test-market.py test-data.log || exit 1
-
-stat | formatcols > stat2.txt
-
-echo
-paste stat1.txt stat2.txt
-echo
 
 exit 0
