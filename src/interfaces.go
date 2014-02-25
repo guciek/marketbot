@@ -6,15 +6,7 @@
 package main
 
 type OrderPlanner struct {
-	TargetOrders func() []Order
-	OnNewTransaction func(Transaction) bool
-	LoadData func(string) error
-	SaveData func() string
-}
-
-type DataSaver struct {
-	Write func(string, string) error
-	Read func(string) (string, error)
+	TargetOrders func(AssetValue, MoneyValue) []Order
 }
 
 type TextInterfaceController struct {
@@ -25,7 +17,8 @@ type TextInterfaceController struct {
 
 type MarketController struct {
 	GetTime func() (Time, error)
-	GetOrderList func() (OrderList, error)
+	GetTotalBalance func() (AssetValue, MoneyValue, error)
+	GetOrders func() ([]Order, error)
 	NewOrder func(o Order) error
 	CancelOrder func(o Order) error
 	Wait func() error

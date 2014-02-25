@@ -10,11 +10,11 @@ import (
 )
 
 func Example_OrderSimilar() {
-	a := Order { PriceValue(200000000), MoneyValue(5000000), SELL }
-	b := Order { PriceValue(200000000), MoneyValue(5000000), BUY }
-	c := Order { PriceValue(200000000), MoneyValue(5005000), SELL }
-	d := Order { PriceValue(200010000), MoneyValue(5000000), SELL }
-	e := Order { PriceValue(200001000), MoneyValue(5001000), SELL }
+	a := Order { AssetValue(200000000), MoneyValue(5000000), SELL }
+	b := Order { AssetValue(200000000), MoneyValue(5000000), BUY }
+	c := Order { AssetValue(200000000), MoneyValue(5005000), SELL }
+	d := Order { AssetValue(200010000), MoneyValue(5000000), SELL }
+	e := Order { AssetValue(200001000), MoneyValue(5001000), SELL }
 	fmt.Println(a.Similar(b))
 	fmt.Println(a.Similar(c))
 	fmt.Println(a.Similar(d))

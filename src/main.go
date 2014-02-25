@@ -9,10 +9,10 @@ import(
 	"bufio"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/signal"
+	"strconv"
 	"strings"
 )
 
@@ -22,19 +22,6 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		}
 	}()
-
-	dirDataSaver := func(dir string) DataSaver {
-		return DataSaver {
-			func(f string, d string) error {
-				return ioutil.WriteFile(dir+"/"+f+".txt", []byte(d), 0600)
-			},
-			func(f string) (string, error) {
-				d, e := ioutil.ReadFile(dir+"/"+f+".txt")
-				if e != nil { return "", e }
-				return string(d), nil
-			},
-		}
-	}
 
 	execTextInterface := func(executable string,
 			args ...string) (TextInterfaceController, error) {
@@ -71,9 +58,31 @@ func main() {
 	if len(args) < 2 {
 		path := strings.Split(args[0], "/")
 		n := path[len(path)-1]
-		fmt.Fprintf(os.Stderr, "\nUsage:\n\t%s <market-interface>\n\n", n)
+		fmt.Fprintf(
+			os.Stderr,
+			"\nUsage:\n"+
+			"\t"+n+" -natural <target> -for <money> <market-interface>\n"+
+			"\n",
+		)
 		return
 	}
+
+	var planner OrderPlanner
+	{
+		params := make(map[string]int64)
+		for len(args) >= 3 {
+			if args[1][0] != '-' { break }
+			v, err := strconv.ParseInt(args[2], 10, 64)
+			if err != nil { panic("could not parse number: "+args[2]) }
+			params[args[1][1:]] = v
+			args = args[2:]
+		}
+		var err error
+		planner, err = PlanOrders(params)
+		if err != nil { panic(err.Error()) }
+	}
+
+	if len(args) < 2 { panic("market interface not specified") }
 
 	interrupted := false
 	go func() {
@@ -90,8 +99,7 @@ func main() {
 	}
 
 	Run(
-		MarketTextInterface(exec),
-		dirDataSaver("."),
+		MarketTextInterface(exec), planner,
 		func(msg string) { fmt.Fprintf(os.Stderr, "%s\n", msg) },
 		func() bool { return interrupted },
 	)

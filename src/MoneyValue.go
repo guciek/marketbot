@@ -17,31 +17,11 @@ func (a MoneyValue) Similar(b MoneyValue) bool {
 	return true
 }
 
-func (a MoneyValue) Less(b MoneyValue) bool {
-	if a.Similar(b) { return false }
-	return a < b
-}
-
-func (a MoneyValue) AfterSell(price PriceValue) MoneyValue {
-	if price < 1 { panic("price < 1") }
-	return MoneyValue((uint64(a) * uint64(price)) / 100000000)
-}
-
-func (a MoneyValue) AfterBuy(price PriceValue) MoneyValue {
-	if price < 1 { panic("price < 1") }
-	return MoneyValue((uint64(a) * 100000000) / uint64(price))
-}
-
-func (a MoneyValue) PriceIfBuyFor(b MoneyValue) PriceValue {
-	if a < 1 { panic("a < 1") }
-	return PriceValue((uint64(b) * 100000000) / uint64(a))
-}
-
 func (a MoneyValue) Subtract(b MoneyValue) MoneyValue {
 	if a > b { return a-b }
 	return 0
 }
 
 func (p MoneyValue) String() string {
-	return fmt.Sprintf("%.2f", float64(p)*0.00001)
+	return fmt.Sprintf("$%.2f", float64(p)*0.00001)
 }

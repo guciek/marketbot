@@ -83,7 +83,7 @@ def fakeMarket(store = dict()):
 		btcs += randint(-40, 40)
 		price += randint(-40, 40)
 		if btcs < 1: return False
-		if price < 10000000: return False
+		if price < 1: return False
 		if store["btcs"] < btcs: return False
 		while price in store["orders_sell"]:
 			price = price + 1
@@ -96,7 +96,7 @@ def fakeMarket(store = dict()):
 		plns += randint(-40, 40)
 		price += randint(-40, 40)
 		if plns < 1: return False
-		if price < 1000000: return False
+		if price < 1: return False
 		if store["plns"] < plns: return False
 		while price in store["orders_buy"]:
 			price = price - 1

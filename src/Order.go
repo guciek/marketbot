@@ -5,24 +5,39 @@
 
 package main
 
+import (
+	"fmt"
+)
+
+type OrderType uint8
+
+const (
+	BUY = OrderType(0)
+	SELL = OrderType(1)
+)
+
+func (t OrderType) String() string {
+	if uint8(t) > 0 { return "sell" }
+	return "buy"
+}
+
 type Order struct {
-	price PriceValue
-	cost MoneyValue
+	asset AssetValue
+	money MoneyValue
 	t OrderType
 }
 
+func (o Order) PriceString() string {
+	return fmt.Sprintf("%0.3f", float64(o.money)/float64(o.asset))
+}
+
 func (o Order) String() string {
-	if o.t == BUY {
-		return "(buy "+o.cost.AfterBuy(o.price).String()+" for "+
-			o.cost.String()+", price "+o.price.String()+")"
-	} else {
-		return "(sell "+o.cost.String()+" for "+
-			o.cost.AfterSell(o.price).String()+", price "+o.price.String()+")"
-	}
+	return fmt.Sprintf("(%v %v for %v, price %s)",
+		o.t, o.asset, o.money, o.PriceString())
 }
 
 func (o1 Order) Similar(o2 Order) bool {
 	return (o1.t == o2.t) &&
-		o1.price.Similar(o2.price) &&
-		o1.cost.Similar(o2.cost)
+		o1.asset.Similar(o2.asset) &&
+		o1.money.Similar(o2.money)
 }
