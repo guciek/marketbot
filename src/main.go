@@ -61,7 +61,10 @@ func main() {
 		fmt.Fprintf(
 			os.Stderr,
 			"\nUsage:\n"+
-			"\t"+n+" -natural <target> -for <money> <market-interface>\n"+
+			"\t"+n+" -balance '$123' <market>\n"+
+			"\t"+n+" -balance '$123' -test '$1234'\n"+
+			"\t"+n+" -natural '$123' -target <price*1000> <market>\n"+
+			"\t"+n+" -natural '$123' -target <price*1000> -test '$1234'\n"+
 			"\n",
 		)
 		return
@@ -72,10 +75,19 @@ func main() {
 		params := make(map[string]int64)
 		for len(args) >= 3 {
 			if args[1][0] != '-' { break }
-			v, err := strconv.ParseInt(args[2], 10, 64)
-			if err != nil { panic("could not parse number: "+args[2]) }
-			params[args[1][1:]] = v
+			name, val := args[1][1:], args[2]
 			args = args[2:]
+			if val[0] == '$' {
+				val = val[1:]
+				name += "_money"
+			}
+			if val[0] == '@' {
+				val = val[1:]
+				name += "_asset"
+			}
+			v, err := strconv.ParseInt(val, 10, 64)
+			if err != nil { panic("could not parse number: "+val) }
+			params[name] = v
 		}
 		var err error
 		planner, err = PlanOrders(params)

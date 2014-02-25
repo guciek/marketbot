@@ -12,7 +12,7 @@ import (
 
 func Run_Update(market MarketController,
 		planner func(AssetValue, MoneyValue) []Order,
-		log, log_status func(string)) bool {
+		log, log_status func(string), interrupted func() bool) bool {
 	a, m, err := market.GetTotalBalance()
 	if err != nil { return false }
 
@@ -24,6 +24,7 @@ func Run_Update(market MarketController,
 
 	if len(cancel) > 0 {
 		for _, o := range cancel {
+			if interrupted() { return false }
 			log("Cancelling order "+o.String())
 			market.CancelOrder(o)
 		}
@@ -32,6 +33,7 @@ func Run_Update(market MarketController,
 
 	if len(place) > 0 {
 		for _, o := range place {
+			if interrupted() { return false }
 			log("Placing order "+o.String())
 			market.NewOrder(o)
 		}
@@ -87,7 +89,8 @@ func Run(market MarketController, planner OrderPlanner,
 		}
 		currentTime = ts
 
-		if Run_Update(market, planner.TargetOrders, log, log_status) {
+		if Run_Update(market, planner.TargetOrders,
+				log, log_status, interrupted) {
 			lastUpdate = currentTime
 			if interrupted() { break }
 			if err := market.Wait(); err != nil {

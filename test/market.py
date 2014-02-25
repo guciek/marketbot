@@ -110,12 +110,12 @@ def fakeMarket(store = dict()):
 		store["orders_descr"] = dict()
 		for i in store["orders_buy"]:
 			descr = "buy %d for %d" % ((store["orders_buy"][i] *
-				99600000000) // (1000 * i), store["orders_buy"][i])
+				100000000) // i, store["orders_buy"][i])
 			ret.append(descr)
 			store["orders_descr"][descr] = i
 		for i in store["orders_sell"]:
 			descr = "sell %d for %d" % (store["orders_sell"][i],
-				(store["orders_sell"][i] * i * 996) // 100000000000)
+				(store["orders_sell"][i] * i) // 100000000)
 			ret.append(descr)
 			store["orders_descr"][descr] = i
 		return ret
@@ -186,7 +186,7 @@ def cmdLine(line):
 			print("error")
 		else:
 			am, cash = int(line[1]), int(line[3])
-			pr = int(cash*100000000000//(am*996))
+			pr = int(cash*100000000//am)
 			if apiSell(pr, am) and (randint(1, 10) <= 9):
 				print("ok sell %d for %d" % (am, cash))
 			else:
@@ -196,7 +196,7 @@ def cmdLine(line):
 			print("error")
 		else:
 			am, cash = int(line[1]), int(line[3])
-			pr = int(cash*99600000000//(am*1000))
+			pr = int(cash*100000000//am)
 			if apiBuy(pr, cash) and (randint(1, 10) <= 9):
 				print("ok buy %d for %d" % (am, cash))
 			else:
