@@ -145,14 +145,13 @@ onPriceChange, apiSell, apiBuy, apiGetOrders, \
 	apiCancel, apiTotalBalance, printInfo = fakeMarket()
 
 def passTime(fn, store = dict()):
-	store["step"] = 600
 	store["f"] = open(fn, "rb")
 	l = str(store["f"].readline(), "ascii").split(" ")
-	store["t"] = int(l[0])-store["step"]
+	store["t"] = int(l[0])-1
 	store["next_ts"] = int(l[0])
 	store["next_price"] = int(l[1])
-	def nextPrice():
-		store["t"] = store["t"]+store["step"]
+	def nextPrice(step):
+		store["t"] = store["t"]+step
 		while store["t"] >= store["next_ts"]:
 			l = str(store["f"].readline(), "ascii")
 			if l == "":
@@ -165,7 +164,7 @@ def passTime(fn, store = dict()):
 		return True
 	def getTime():
 		return store["t"]
-	nextPrice()
+	nextPrice(1)
 	return nextPrice, getTime
 getTime = None
 
@@ -179,7 +178,7 @@ def cmdLine(line):
 		else:
 			print("time "+str(getTime()))
 	elif line[0] == "wait":
-		ret = passTime()
+		ret = passTime(300)
 		print("ok wait" if ret else "exit")
 	elif (line[0] == "sell") and (line[2] == "for"):
 		if randint(1, 10) <= 2:
@@ -244,6 +243,7 @@ try:
 		for line in sys.stdin:
 			if not cmdLine(line.strip()):
 				break
+			passTime(5)
 		printInfo()
 except KeyboardInterrupt:
 	sys.stderr.write("\n[Market] Interrupted\n")

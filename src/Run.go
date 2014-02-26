@@ -8,6 +8,7 @@ package main
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 func Run_Update(market MarketController,
@@ -16,11 +17,32 @@ func Run_Update(market MarketController,
 	a, m, err := market.GetTotalBalance()
 	if err != nil { return false }
 
+	if interrupted() { return false }
 	current, err := market.GetOrders()
 	if err != nil { return false }
 
 	target := planner(a, m)
 	cancel, place := DiffOrders(current, target)
+
+	{
+		prices := func(t OrderType) (ret []string) {
+			for _, o := range current {
+				if o.t == t { ret = append(ret, o.PriceString()) }
+			}
+			ret = append(ret, "X")
+			return
+		}
+		sort.Sort(SortOrdersByPriority(current))
+		b, s := prices(BUY), prices(SELL)
+		if len(s) > 2 { s = s[0:2] }
+		if len(b) > 2 { b = b[0:2] }
+		if len(b) > 1 { b[0], b[1] = b[1], b[0] }
+		log_status(fmt.Sprintf(
+			"Orders: %d/%d (+%d), spread: [%v] %v ~ %v [%v]",
+			len(target)-len(place), len(target), len(cancel),
+			m, strings.Join(b, " "), strings.Join(s, " "), a,
+		))
+	}
 
 	if len(cancel) > 0 {
 		for _, o := range cancel {
@@ -39,21 +61,6 @@ func Run_Update(market MarketController,
 		}
 		return false
 	}
-
-	sort.Sort(SortOrdersByPriority(target))
-	firstprice := func(t OrderType) string {
-		for _, o := range target {
-			if o.t == t { return " "+o.PriceString() }
-		}
-		return ""
-	}
-	var target_buy, target_sell = 0, 0
-	for _, o := range target {
-		if o.t == BUY { target_buy++ } else { target_sell++ }
-	}
-	log_status(fmt.Sprintf("Placed: %d buy orders, "+
-		"%d sell orders, spread%s ~%s", target_buy, target_sell,
-		firstprice(BUY), firstprice(SELL)))
 
 	return true
 }
@@ -98,10 +105,13 @@ func Run(market MarketController, planner OrderPlanner,
 				break
 			}
 		} else if lastUpdate > 0 {
-			if lastUpdate+1200 <= currentTime {
+			if lastUpdate+600 <= currentTime {
 				lastUpdate = currentTime
-				log_status("Warning: could not update for 20 minutes")
+				log("Warning: could not update for last 10 minutes")
 			}
+		} else {
+			lastUpdate = currentTime
+			log("Warning: could not update")
 		}
 	}
 }

@@ -39,13 +39,14 @@ func PlanOrders_Next_Natural(params map[string]int64) (ret func(AssetValue,
 			newprice := (math.Sqrt(delta)-s)/float64(2*asset)
 			if newprice <= 0 { return Order {} }
 			buy := AssetValue(s/newprice)
+			if buy < 90000 { return Order {} }
 			return Order {buy*gain/1000, size_money, BUY}
 		} else {
 			s := float64(size_money)
 			delta := s*s + 4.0*float64(asset)*(float64(money)+s)*target
 			newprice := (math.Sqrt(delta)+s)/float64(2*asset)
 			sell := AssetValue(s/newprice)
-			if sell < 100000 { return Order {} }
+			if sell < 90000 { return Order {} }
 			return Order {sell*1000/gain, size_money, SELL}
 		}
 	}
@@ -72,11 +73,12 @@ func PlanOrders_Next_Balance(params map[string]int64) (ret func(AssetValue,
 			if money < size_money*3 { return Order {} }
 			s := float64(size_money)
 			buy := AssetValue((float64(asset)*s)/(float64(money)-s*2.0))
+			if buy < 90000 { return Order {} }
 			return Order {buy*gain/1000, size_money, BUY}
 		} else {
 			s := float64(size_money)
 			sell := AssetValue((float64(asset)*s)/(float64(money)+s*2.0))
-			if sell < 100000 { return Order {} }
+			if sell < 90000 { return Order {} }
 			return Order {sell*1000/gain, size_money, SELL}
 		}
 	}
