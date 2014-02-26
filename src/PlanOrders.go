@@ -170,7 +170,7 @@ func PlanOrders(params map[string]int64) (OrderPlanner, error) {
 			for _, o := range target {
 				if o.t != BUY { continue }
 				m_ -= o.money
-				a_ += o.asset
+				a_ += o.asset*AssetValue(fee)/1000
 				lines = append(lines, fmt.Sprint("                <-", o))
 				lines = append(lines, fmt.Sprint(a_, m_))
 			}
@@ -181,7 +181,7 @@ func PlanOrders(params map[string]int64) (OrderPlanner, error) {
 		fmt.Println(a, m)
 		for _, o := range target {
 			if o.t != SELL { continue }
-			m += o.money
+			m += o.money*MoneyValue(fee)/1000
 			a -= o.asset
 			fmt.Println("                <-", o)
 			fmt.Println(a, m)
