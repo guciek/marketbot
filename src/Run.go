@@ -11,17 +11,11 @@ import (
 	"strings"
 )
 
-func Run_Update(market MarketController,
-		planner func(AssetValue, MoneyValue) []Order,
-		log, log_status func(string), interrupted func() bool) bool {
-	a, m, err := market.GetTotalBalance()
-	if err != nil { return false }
-
-	if interrupted() { return false }
-	current, err := market.GetOrders()
-	if err != nil { return false }
-
-	target := planner(a, m)
+func Run_Update(market MarketController, planner OrderPlanner,
+		current []Order, a AssetValue, m MoneyValue,
+		log, log_status func(string),
+		interrupted func() bool) bool {
+	target := planner.TargetOrders(a, m)
 	cancel, place := DiffOrders(current, target)
 
 	{
@@ -79,14 +73,17 @@ func Run(market MarketController, planner OrderPlanner,
 
 	log_status := func() func(string) {
 		var last_m string
+		var last_t Time
 		return func(m string) {
-			if (m == last_m) { return }
+			if (m == last_m) && (last_t+3590 > currentTime) { return }
 			last_m = m
+			last_t = currentTime
 			log(m)
 		}
 	}()
 
-	var lastUpdate Time
+	var prev_asset AssetValue = 0
+	var prev_money MoneyValue = 0
 	for ! interrupted() {
 		ts, err := market.GetTime()
 		if err != nil { continue }
@@ -96,22 +93,29 @@ func Run(market MarketController, planner OrderPlanner,
 		}
 		currentTime = ts
 
-		if Run_Update(market, planner.TargetOrders,
-				log, log_status, interrupted) {
-			lastUpdate = currentTime
+		var current []Order
+		{
+			var err error
+			current, err = market.GetOrders()
+			if err != nil { continue }
+		}
+		{
 			if interrupted() { break }
+			a, m, err := market.GetTotalBalance()
+			if err != nil { continue }
+
+			a_, m_ := prev_asset, prev_money
+			prev_asset, prev_money = a, m
+			if ! a.Similar(a_) { continue }
+			if ! m.Similar(m_) { continue }
+		}
+
+		if Run_Update(market, planner, current, prev_asset, prev_money,
+				log, log_status, interrupted) {
 			if err := market.Wait(); err != nil {
 				log("Error: "+err.Error())
 				break
 			}
-		} else if lastUpdate > 0 {
-			if lastUpdate+600 <= currentTime {
-				lastUpdate = currentTime
-				log("Warning: could not update for last 10 minutes")
-			}
-		} else {
-			lastUpdate = currentTime
-			log("Warning: could not update")
 		}
 	}
 }
