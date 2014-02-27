@@ -16,19 +16,22 @@ func PlanOrders_Next_Natural(params map[string]int64) (ret func(AssetValue,
 		err = fmt.Errorf("incorrect value of '-natural'")
 		return
 	}
-	size_money := MoneyValue(params["natural_money"]*100000)
+	size_money := MoneyValue(params["natural_money"])
 
-	target := float64(params["target"])/1000.0
-	if target < 0.002 {
+	target := float64(params["target"])*0.00001
+	if target < 0.0001 {
 		err = fmt.Errorf("incorrect value of '-target'")
 		return
 	}
 
-	gain := AssetValue(params["gain"])
-	if gain == 0 { gain = 1012 }
-	if (gain < 1000) || (gain > 2000) {
-		err = fmt.Errorf("incorrect value of '-gain'")
-		return
+	spread := float64(1.0)
+	if params["spread"] != 0 {
+		s := float64(params["spread"])*0.00001
+		if (s < 0.0) || (s > 0.6) {
+			err = fmt.Errorf("incorrect value of '-spread'")
+			return
+		}
+		spread = math.Sqrt(1.0+s)
 	}
 
 	ret = func(asset AssetValue, money MoneyValue, t OrderType) Order {
@@ -38,16 +41,16 @@ func PlanOrders_Next_Natural(params map[string]int64) (ret func(AssetValue,
 			delta := s*s + 4.0*float64(asset)*(float64(money)-s)*target
 			newprice := (math.Sqrt(delta)-s)/float64(2*asset)
 			if newprice <= 0 { return Order {} }
-			buy := AssetValue(s/newprice)
-			if buy < 90000 { return Order {} }
-			return Order {buy*gain/1000, size_money, BUY}
+			buy := (s/newprice)*spread
+			if buy < 90.0 { return Order {} }
+			return Order {AssetValue(buy), size_money, BUY}
 		} else {
 			s := float64(size_money)
 			delta := s*s + 4.0*float64(asset)*(float64(money)+s)*target
 			newprice := (math.Sqrt(delta)+s)/float64(2*asset)
-			sell := AssetValue(s/newprice)
-			if sell < 90000 { return Order {} }
-			return Order {sell*1000/gain, size_money, SELL}
+			sell := (s/newprice)/spread
+			if sell < 90.0 { return Order {} }
+			return Order {AssetValue(sell), size_money, SELL}
 		}
 	}
 	return
@@ -59,27 +62,30 @@ func PlanOrders_Next_Balance(params map[string]int64) (ret func(AssetValue,
 		err = fmt.Errorf("incorrect value of '-balance'")
 		return
 	}
-	size_money := MoneyValue(params["balance_money"]*100000)
+	size_money := MoneyValue(params["balance_money"])
 
-	gain := AssetValue(params["gain"])
-	if gain == 0 { gain = 1012 }
-	if (gain < 1000) || (gain > 2000) {
-		err = fmt.Errorf("incorrect value of '-gain'")
-		return
+	spread := float64(1.0)
+	if params["spread"] != 0 {
+		s := float64(params["spread"])*0.00001
+		if (s < 0.0) || (s > 0.6) {
+			err = fmt.Errorf("incorrect value of '-spread'")
+			return
+		}
+		spread = math.Sqrt(1.0+s)
 	}
 
 	ret = func(asset AssetValue, money MoneyValue, t OrderType) Order {
 		if t == BUY {
-			if money < size_money*3 { return Order {} }
 			s := float64(size_money)
-			buy := AssetValue((float64(asset)*s)/(float64(money)-s*2.0))
-			if buy < 90000 { return Order {} }
-			return Order {buy*gain/1000, size_money, BUY}
+			if float64(money) < s*2.01 { return Order {} }
+			buy := ((float64(asset)*s)/(float64(money)-s*2.0))*spread
+			if buy < 90.0 { return Order {} }
+			return Order {AssetValue(buy), size_money, BUY}
 		} else {
 			s := float64(size_money)
-			sell := AssetValue((float64(asset)*s)/(float64(money)+s*2.0))
-			if sell < 90000 { return Order {} }
-			return Order {sell*1000/gain, size_money, SELL}
+			sell := ((float64(asset)*s)/(float64(money)+s*2.0))/spread
+			if sell < 90.0 { return Order {} }
+			return Order {AssetValue(sell), size_money, SELL}
 		}
 	}
 	return
@@ -101,32 +107,34 @@ func PlanOrders(params map[string]int64) (OrderPlanner, error) {
 
 	mask_money := MoneyValue(0)
 	if params["mask_money"] > 0 {
-		mask_money = MoneyValue(params["mask_money"]*100000)
+		mask_money = MoneyValue(params["mask_money"])
 	}
 
 	mask_asset := AssetValue(0)
 	if params["mask_asset"] > 0 {
-		mask_asset = AssetValue(params["mask_asset"]*100000)
+		mask_asset = AssetValue(params["mask_asset"])
 	}
 
-	numplace := int(params["place"])
+	numplace := int(params["place"]/100000)
 	if numplace < 1 { numplace = 3 }
 
-	fee := AssetValue(params["fee"])
-	if fee == 0 { fee = 1000 }
-	if (fee < 900) || (fee > 1000) {
+	fee := 100000 - AssetValue(params["fee"])
+	if (fee < 90000) || (fee > 100000) {
 		return OrderPlanner {}, fmt.Errorf("incorrect value of '-fee'")
 	}
 
 	targetOrders := func(asset AssetValue, money MoneyValue) []Order {
+		if asset < 90 { return nil }
+		if money < 90 { return nil }
 		ret := make([]Order, 0, 10)
 		{
 			a, m := asset, money
 			for i := 0; i < numplace; i++ {
+				if m < 90 { break }
 				o := next(a.Subtract(mask_asset), m.Subtract(mask_money), BUY)
 				if o.asset < 1 { break }
 				if m < o.money+mask_money { break }
-				ret = append(ret, Order {o.asset*1000/AssetValue(fee),
+				ret = append(ret, Order {o.asset*100000/AssetValue(fee),
 						o.money, BUY})
 				m -= o.money
 				a += o.asset
@@ -135,11 +143,12 @@ func PlanOrders(params map[string]int64) (OrderPlanner, error) {
 		{
 			a, m := asset, money
 			for i := 0; i < numplace; i++ {
+				if a < 90 { break }
 				o := next(a.Subtract(mask_asset), m.Subtract(mask_money), SELL)
 				if o.asset < 1 { break }
 				if a < o.asset+mask_asset { break }
 				ret = append(ret, Order {o.asset,
-						o.money*1000/MoneyValue(fee), SELL})
+						o.money*100000/MoneyValue(fee), SELL})
 				m += o.money
 				a -= o.asset
 			}
@@ -148,12 +157,12 @@ func PlanOrders(params map[string]int64) (OrderPlanner, error) {
 	}
 
 	if (params["test_money"] > 0) || (params["test_asset"] > 0) {
-		m := MoneyValue(params["test_money"]*100000)
-		a := AssetValue(params["test_asset"]*100000)
+		m := MoneyValue(params["test_money"])
+		a := AssetValue(params["test_asset"])
 		{
 			pr := float64(1.0)
 			if params["target"] > 0 {
-				pr = float64(params["target"])/1000.0
+				pr = float64(params["target"])*0.00001
 			}
 			if m < 1 {
 				a /= 2

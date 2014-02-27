@@ -61,10 +61,13 @@ func main() {
 		fmt.Fprintf(
 			os.Stderr,
 			"\nUsage:\n"+
-			"\t"+n+" -balance '$123' <market>\n"+
-			"\t"+n+" -balance '$123' -test '$1234'\n"+
-			"\t"+n+" -natural '$123' -target <price*1000> <market>\n"+
-			"\t"+n+" -natural '$123' -target <price*1000> -test '$1234'\n"+
+			"\t"+n+" -balance '$1.23' <market>\n"+
+			"\t"+n+" -natural '$1.23' -target 1.234 <market>\n"+
+			"\n"+
+			"Other options:\n"+
+			"\t-fee 0.12%%       Market fee, deducted from transaction gain\n"+
+			"\t-spread 1.2%%     Increase spread between buy and sell orders\n"+
+			"\t-test '$1234'    Show target orders and exit\n"+
 			"\n",
 		)
 		return
@@ -73,21 +76,42 @@ func main() {
 	var planner OrderPlanner
 	{
 		params := make(map[string]int64)
+		parseFloat100000 := func(val string) int64 {
+			s := strings.Split(val, ".")
+			if len(s) > 2 { panic("could not parse number: "+val) }
+			var ret int64 = 0
+			{
+				v, err := strconv.ParseInt(s[0], 10, 64)
+				if err != nil { panic("could not parse number: "+val) }
+				ret += v*100000
+			}
+			if len(s) == 2 {
+				if len(s[1]) > 5 { panic("too many decimal places: "+val) }
+				for len(s[1]) < 5 { s[1] = s[1]+"0" }
+				v, err := strconv.ParseInt(s[1], 10, 64)
+				if err != nil { panic("could not parse number: "+val) }
+				ret += v
+			}
+			return ret
+		}
 		for len(args) >= 3 {
 			if args[1][0] != '-' { break }
 			name, val := args[1][1:], args[2]
+			if len(val) < 1 { panic("invalid value of -"+name) }
 			args = args[2:]
 			if val[0] == '$' {
-				val = val[1:]
 				name += "_money"
+				val = val[1:]
 			}
 			if val[0] == '@' {
-				val = val[1:]
 				name += "_asset"
+				val = val[1:]
 			}
-			v, err := strconv.ParseInt(val, 10, 64)
-			if err != nil { panic("could not parse number: "+val) }
-			params[name] = v
+			if val[len(val)-1] == '%' {
+				params[name] = parseFloat100000(val[0:len(val)-1])/100
+			} else {
+				params[name] = parseFloat100000(val)
+			}
 		}
 		var err error
 		planner, err = PlanOrders(params)

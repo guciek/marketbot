@@ -41,11 +41,7 @@ def fakeMarket(store = dict()):
 		)
 	def transactionSell(price, marketpr = False):
 		btcs = store["orders_sell"][price]
-		if (btcs > 1000000) and (randint(1, 10) <= 2) and (not marketpr):
-			btcs = btcs*randint(50, 98)/100
-			store["orders_sell"][price] -= btcs
-		else:
-			del store["orders_sell"][price]
+		del store["orders_sell"][price]
 		plns = (btcs * (store["market_price"] if marketpr
 			else price) * 996) // 100000000000
 		store["plns"] += plns
@@ -55,11 +51,7 @@ def fakeMarket(store = dict()):
 		return True
 	def transactionBuy(price, marketpr = False):
 		plns = store["orders_buy"][price]
-		if (plns > 4000000) and (randint(1, 10) <= 2) and (not marketpr):
-			plns = plns*randint(50, 98)/100
-			store["orders_buy"][price] -= plns
-		else:
-			del store["orders_buy"][price]
+		del store["orders_buy"][price]
 		btcs = (plns * 99600000000) // (1000 * (store["market_price"]
 			if marketpr else price))
 		store["btcs"] += btcs
@@ -210,7 +202,7 @@ def cmdLine(line):
 			else:
 				print("error")
 	elif line[0] == "orders":
-		if randint(1, 100) <= 1:
+		if randint(1, 100) <= 3:
 			print("error")
 		else:
 			os = apiGetOrders()

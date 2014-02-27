@@ -7,6 +7,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 )
 
 type OrderType uint8
@@ -28,7 +29,16 @@ type Order struct {
 }
 
 func (o Order) PriceString() string {
-	return fmt.Sprintf("%0.3f", float64(o.money)/float64(o.asset))
+	price := float64(o.money)/float64(o.asset)
+	digits := 5
+	{
+		p := price
+		for p < 1.0 {
+			p *= 10.0
+			digits++
+		}
+	}
+	return strconv.FormatFloat(price, 'f', digits, 64)
 }
 
 func (o Order) String() string {
