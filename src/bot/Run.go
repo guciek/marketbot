@@ -84,6 +84,8 @@ func Run(market MarketController, planner OrderPlanner,
 
 	var prev_asset AssetValue = 0
 	var prev_money MoneyValue = 0
+	var prev_orders []Order = make([]Order, 0)
+	orders_updated := false
 	for ! interrupted() {
 		ts, err := market.GetTime()
 		if err != nil { continue }
@@ -93,29 +95,40 @@ func Run(market MarketController, planner OrderPlanner,
 		}
 		currentTime = ts
 
-		var current []Order
-		{
-			var err error
-			current, err = market.GetOrders()
-			if err != nil { continue }
-		}
-		{
-			if interrupted() { break }
+		info_updated := false
+
+		if interrupted() { return }
+		if orders_updated {
 			a, m, err := market.GetTotalBalance()
-			if err != nil { continue }
-
-			a_, m_ := prev_asset, prev_money
-			prev_asset, prev_money = a, m
-			if ! a.Similar(a_) { continue }
-			if ! m.Similar(m_) { continue }
+			if err == nil {
+				a_, m_ := prev_asset, prev_money
+				prev_asset, prev_money = a, m
+				if a.Similar(a_) && (m.Similar(m_)) {
+					orders_updated = false
+					info_updated = true
+				}
+			}
+		} else {
+			c, err := market.GetOrders()
+			if err == nil {
+				c_ := prev_orders
+				prev_orders = c
+				a, b := DiffOrders(c, c_)
+				if (len(a) == 0) && (len(b) == 0) {
+					orders_updated = true
+				}
+			}
 		}
 
-		if Run_Update(market, planner, current, prev_asset, prev_money,
-				log, log_status, interrupted) {
-			if err := market.Wait(); err != nil {
-				log("Error: "+err.Error())
-				break
-			}
+		if info_updated {
+			Run_Update(market, planner, prev_orders, prev_asset, prev_money,
+				log, log_status, interrupted)
+		}
+
+		if interrupted() { return }
+		if err := market.Wait(); err != nil {
+			log("Error: "+err.Error())
+			return
 		}
 	}
 }

@@ -170,7 +170,7 @@ def cmdLine(line):
 		else:
 			print("time "+str(getTime()))
 	elif line[0] == "wait":
-		ret = passTime(300)
+		ret = passTime(60)
 		print("ok wait" if ret else "exit")
 	elif (line[0] == "sell") and (line[2] == "for"):
 		if randint(1, 10) <= 2:
