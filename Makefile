@@ -3,9 +3,9 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, version 2 or 3.
 
-GOFILES := $(wildcard src/*.go)
-SRCFILES := $(patsubst %_test.go,,$(GOFILES))
+export GOPATH := $(shell pwd)
+SRCFILES := $(shell find src -type f)
 
-bot: Makefile $(GOFILES)
-	@go test $(GOFILES)
-	@go build -o $@ $(SRCFILES)
+bot: Makefile $(SRCFILES)
+	@go test $@
+	@go build $@

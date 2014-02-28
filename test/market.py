@@ -145,6 +145,7 @@ def passTime(fn, store = dict()):
 	def nextPrice(step):
 		store["t"] = store["t"]+step
 		while store["t"] >= store["next_ts"]:
+			onPriceChange(store["next_ts"], store["next_price"])
 			l = str(store["f"].readline(), "ascii")
 			if l == "":
 				store["f"].close()
@@ -152,7 +153,6 @@ def passTime(fn, store = dict()):
 			l = l.split(" ")
 			store["next_ts"] = int(l[0])
 			store["next_price"] = int(l[1])
-		onPriceChange(store["t"], store["next_price"])
 		return True
 	def getTime():
 		return store["t"]
