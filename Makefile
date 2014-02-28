@@ -5,7 +5,8 @@
 
 export GOPATH := $(shell pwd)
 SRCFILES := $(shell find src -type f)
+MODULES := $(shell ls src)
 
 bot: Makefile $(SRCFILES)
-	@go test $@
+	@go test $(MODULES)
 	@go build $@
