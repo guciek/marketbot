@@ -17,6 +17,10 @@ type Decimal struct {
 }
 
 func (p Decimal) String() string {
+	return p.StringPrecision(0)
+}
+
+func (p Decimal) StringPrecision(prec uint32) string {
 	if p.v == nil { return "0" }
 	s := p.v.String()
 	var ret bytes.Buffer
@@ -25,17 +29,28 @@ func (p Decimal) String() string {
 		for p := p.exp; p > 0; p-- {
 			ret.WriteByte('0')
 		}
-	} else if len(s) > -p.exp {
-		ret.WriteString(s[0:len(s)+p.exp])
-		ret.WriteByte('.')
-		ret.WriteString(s[len(s)+p.exp:len(s)])
+		if prec > 0 {
+			ret.WriteByte('.')
+			for p := uint32(0); p < prec; p++ {
+				ret.WriteByte('0')
+			}
+		}
 	} else {
-		ret.WriteByte('0')
-		ret.WriteByte('.')
-		for p := len(s)+p.exp; p < 0; p++ {
+		if len(s) > -p.exp {
+			ret.WriteString(s[0:len(s)+p.exp])
+			ret.WriteByte('.')
+			ret.WriteString(s[len(s)+p.exp:len(s)])
+		} else {
+			ret.WriteByte('0')
+			ret.WriteByte('.')
+			for p := len(s)+p.exp; p < 0; p++ {
+				ret.WriteByte('0')
+			}
+			ret.WriteString(s)
+		}
+		for p := int64(prec) + int64(p.exp); p > 0; p-- {
 			ret.WriteByte('0')
 		}
-		ret.WriteString(s)
 	}
 	return ret.String()
 }
@@ -66,7 +81,7 @@ func Value(v uint32) Decimal {
 	return ret
 }
 
-func ParseString(v string) (Decimal, error) {
+func ParseDecimal(v string) (Decimal, error) {
 	if len(v) < 1 {
 		return Decimal {}, fmt.Errorf("empty string")
 	}
@@ -215,16 +230,10 @@ func (lhs Decimal) Less(rhs Decimal) bool {
 	d := (len(l)+lhs.exp) - (len(r)+rhs.exp)
 	if d > 0 { return false }
 	if d < 0 { return true }
-	i := 0
-	for {
-		if (i < len(l)) && (i >= len(r)-1) { return false }
-		if (i < len(r)) && (i >= len(l)-1) { return true }
-		if (i < len(l)) && (i < len(r)) {
-			if l[i] != r[i] {
-				return l[i] < r[i];
-			}
+	for i := 0; (i < len(l)) && (i < len(r)); i++ {
+		if l[i] != r[i] {
+			return l[i] < r[i];
 		}
-		i++
 	}
-	return false
+	return len(l) < len(r)
 }

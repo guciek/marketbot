@@ -6,197 +6,146 @@
 package main
 
 import (
+	"decimal"
 	"fmt"
-	"math"
+	"money"
+	"sort"
+	"strconv"
+	"strings"
 )
 
-func PlanOrders_Next_Natural(params map[string]int64) (ret func(AssetValue,
-		MoneyValue, OrderType) Order, err error) {
-	if params["natural_money"] < 1 {
-		err = fmt.Errorf("incorrect value of '-natural'")
+func planOrdersBalance(params map[string]string) (
+		ret func(am1, am2 money.Money) Order, err error) {
+	pair := strings.Split(strings.ToUpper(params["balance"]), "/")
+	if len(pair) != 2 {
+		err = fmt.Errorf("invalid value of \"-balance\"")
 		return
 	}
-	size_money := MoneyValue(params["natural_money"])
+	delete(params, "balance")
 
-	target := float64(params["target"])*0.00001
-	if target < 0.0001 {
-		err = fmt.Errorf("incorrect value of '-target'")
+	if params["order"] == "" {
+		err = fmt.Errorf("missing parameter \"-order\"")
 		return
 	}
+	var size money.Money
+	size, err = money.ParseMoney(params["order"])
+	if err != nil { return }
+	if (size.Currency() != pair[0]) && (size.Currency() != pair[1]) {
+		err = fmt.Errorf("currency of \"-order\" should be %q or %q",
+			pair[0], pair[1])
+		return
+	}
+	delete(params, "order")
 
-	spread := float64(1.0)
-	if params["spread"] != 0 {
-		s := float64(params["spread"])*0.00001
-		if (s < 0.0) || (s > 0.6) {
-			err = fmt.Errorf("incorrect value of '-spread'")
-			return
+	return func(am1, am2 money.Money) Order {
+		if ((am1.Currency() != pair[0]) || (am2.Currency() != pair[1])) &&
+				((am1.Currency() != pair[1]) || (am2.Currency() != pair[0])) {
+			return Order {}
 		}
-		spread = math.Sqrt(1.0+s)
-	}
-
-	ret = func(asset AssetValue, money MoneyValue, t OrderType) Order {
-		if t == BUY {
-			if money < size_money { return Order {} }
-			s := float64(size_money)
-			delta := s*s + 4.0*float64(asset)*(float64(money)-s)*target
-			newprice := (math.Sqrt(delta)-s)/float64(2*asset)
-			if newprice <= 0 { return Order {} }
-			buy := (s/newprice)*spread
-			if buy < 90.0 { return Order {} }
-			return Order {AssetValue(buy), size_money, BUY}
+		size2 := size.Add(size)
+		if size.Currency() == am1.Currency() {
+			part := size.Div(am1.Add(size2), 10)
+			return Order {buy: size, sell: am2.Mult(part).Round(6)}
 		} else {
-			s := float64(size_money)
-			delta := s*s + 4.0*float64(asset)*(float64(money)+s)*target
-			newprice := (math.Sqrt(delta)+s)/float64(2*asset)
-			sell := (s/newprice)/spread
-			if sell < 90.0 { return Order {} }
-			return Order {AssetValue(sell), size_money, SELL}
+			if ! size2.LessNotSimilar(am2) { return Order {} }
+			part := size.Div(am2.Sub(size2), 10)
+			return Order {buy: am1.Mult(part).Round(6), sell: size}
 		}
-	}
-	return
+	}, nil
 }
 
-func PlanOrders_Next_Balance(params map[string]int64) (ret func(AssetValue,
-		MoneyValue, OrderType) Order, err error) {
-	if params["balance_money"] < 1 {
-		err = fmt.Errorf("incorrect value of '-balance'")
-		return
+func percentValue(s string) (decimal.Decimal, error) {
+	percent := false
+	if s[len(s)-1] == '%' {
+		percent = true
+		s = s[0:len(s)-1]
 	}
-	size_money := MoneyValue(params["balance_money"])
-
-	spread := float64(1.0)
-	if params["spread"] != 0 {
-		s := float64(params["spread"])*0.00001
-		if (s < 0.0) || (s > 0.6) {
-			err = fmt.Errorf("incorrect value of '-spread'")
-			return
-		}
-		spread = math.Sqrt(1.0+s)
+	v, err := decimal.ParseDecimal(s)
+	if err != nil {
+		return decimal.Decimal {}, err
 	}
-
-	ret = func(asset AssetValue, money MoneyValue, t OrderType) Order {
-		if t == BUY {
-			s := float64(size_money)
-			if float64(money) < s*2.01 { return Order {} }
-			buy := ((float64(asset)*s)/(float64(money)-s*2.0))*spread
-			if buy < 90.0 { return Order {} }
-			return Order {AssetValue(buy), size_money, BUY}
-		} else {
-			s := float64(size_money)
-			sell := ((float64(asset)*s)/(float64(money)+s*2.0))/spread
-			if sell < 90.0 { return Order {} }
-			return Order {AssetValue(sell), size_money, SELL}
-		}
+	if percent {
+		m, _ := decimal.ParseDecimal("0.01")
+		v = v.Mult(m)
 	}
-	return
+	return v, nil
 }
 
-func PlanOrders(params map[string]int64) (OrderPlanner, error) {
-	var next func(asset AssetValue, money MoneyValue, t OrderType) Order
-	if (params["natural_money"] > 0) || (params["natural_asset"] > 0) {
-		var err error
-		next, err = PlanOrders_Next_Natural(params)
+func PlanOrders(params map[string]string) (OrderPlanner, error) {
+	if params["test"] != "" {
+		balance := make([]money.Money, 0, 10)
+		for _, s := range strings.Split(params["test"], ",") {
+			m, err := money.ParseMoney(s)
+			if err != nil { return OrderPlanner {}, err }
+			balance = append(balance, m)
+		}
+		delete(params, "test")
+		planner, err := PlanOrders(params)
 		if err != nil { return OrderPlanner {}, err }
-	} else if (params["balance_money"] > 0) || (params["balance_asset"] > 0) {
+		target := SortOrdersByPriority(planner.TargetOrders(balance))
+		sort.Sort(target)
+		for _, t := range target {
+			fmt.Println(t)
+		}
+		return OrderPlanner {}, fmt.Errorf("test mode, exiting")
+	}
+
+	var next func(am1, am2 money.Money) Order
+	if params["balance"] != "" {
 		var err error
-		next, err = PlanOrders_Next_Balance(params)
+		next, err = planOrdersBalance(params)
 		if err != nil { return OrderPlanner {}, err }
 	} else {
 		return OrderPlanner {}, fmt.Errorf("planning type not specified")
 	}
 
-	mask_money := MoneyValue(0)
-	if params["mask_money"] > 0 {
-		mask_money = MoneyValue(params["mask_money"])
+	var place int64 = 3
+	if params["place"] != "" {
+		var err error
+		place, err = strconv.ParseInt(params["place"], 10, 64)
+		if err != nil { return OrderPlanner {}, err }
+		if place < 1 {
+			return OrderPlanner {}, fmt.Errorf("invalid value of \"-place\"")
+		}
+		delete(params, "place")
 	}
 
-	mask_asset := AssetValue(0)
-	if params["mask_asset"] > 0 {
-		mask_asset = AssetValue(params["mask_asset"])
+	fee_inverse := decimal.Value(1)
+	if s := params["fee"]; s != "" {
+		v, err := percentValue(s)
+		max, _ := decimal.ParseDecimal("0.1")
+		if (err != nil) || (! v.Less(max)) {
+			return OrderPlanner {}, fmt.Errorf("invalid value of \"-fee\"")
+		}
+		fee_inverse = fee_inverse.Div(fee_inverse.Sub(v), 5)
+		delete(params, "fee")
 	}
 
-	numplace := int(params["place"]/100000)
-	if numplace < 1 { numplace = 3 }
-
-	fee := 100000 - AssetValue(params["fee"])
-	if (fee < 90000) || (fee > 100000) {
-		return OrderPlanner {}, fmt.Errorf("incorrect value of '-fee'")
+	for p, _ := range params {
+		return OrderPlanner {}, fmt.Errorf("unrecognized parameter %q", "-"+p)
 	}
 
-	targetOrders := func(asset AssetValue, money MoneyValue) []Order {
-		if asset < 90 { return nil }
-		if money < 90 { return nil }
-		ret := make([]Order, 0, 10)
-		{
-			a, m := asset, money
-			for i := 0; i < numplace; i++ {
-				if m < 90 { break }
-				o := next(a.Subtract(mask_asset), m.Subtract(mask_money), BUY)
-				if o.asset < 1 { break }
-				if m < o.money+mask_money { break }
-				ret = append(ret, Order {o.asset*100000/AssetValue(fee),
-						o.money, BUY})
-				m -= o.money
-				a += o.asset
+	return OrderPlanner {
+		TargetOrders: func(balance []money.Money) []Order {
+			ret := make([]Order, 0, 12)
+			for i := 0; i < len(balance); i++ {
+				for j := 0; j < len(balance); j++ {
+					if i == j { continue }
+					b1, b2 := balance[i], balance[j]
+					for k := int64(0); k < place; k++ {
+						o := next(b1, b2)
+						if o.buy.IsNull() { break }
+						if o.sell.IsNull() { break }
+						if ! o.sell.LessNotSimilar(b2) { break }
+						if ! money.PriceLess(b1, b2, o.buy, o.sell) { break }
+						b2 = b2.Sub(o.sell)
+						b1 = b1.Add(o.buy)
+						o.buy = o.buy.Mult(fee_inverse)
+						ret = append(ret, o)
+					}
+				}
 			}
-		}
-		{
-			a, m := asset, money
-			for i := 0; i < numplace; i++ {
-				if a < 90 { break }
-				o := next(a.Subtract(mask_asset), m.Subtract(mask_money), SELL)
-				if o.asset < 1 { break }
-				if a < o.asset+mask_asset { break }
-				ret = append(ret, Order {o.asset,
-						o.money*100000/MoneyValue(fee), SELL})
-				m += o.money
-				a -= o.asset
-			}
-		}
-		return ret
-	}
-
-	if (params["test_money"] > 0) || (params["test_asset"] > 0) {
-		m := MoneyValue(params["test_money"])
-		a := AssetValue(params["test_asset"])
-		{
-			pr := float64(1.0)
-			if params["target"] > 0 {
-				pr = float64(params["target"])*0.00001
-			}
-			if m < 1 {
-				a /= 2
-				m = MoneyValue(float64(a)*pr)
-			} else if a < 1 {
-				m /= 2
-				a = AssetValue(float64(m)/pr)
-			}
-		}
-		target := targetOrders(a, m)
-		{
-			a_, m_ := a, m
-			lines := make([]string, 0, 100)
-			for _, o := range target {
-				if o.t != BUY { continue }
-				m_ -= o.money
-				a_ += o.asset*AssetValue(fee)/1000
-				lines = append(lines, fmt.Sprint("                <-", o))
-				lines = append(lines, fmt.Sprint(a_, m_))
-			}
-			for i := len(lines)-1; i >= 0; i-- {
-				fmt.Println(lines[i])
-			}
-		}
-		fmt.Println(a, m)
-		for _, o := range target {
-			if o.t != SELL { continue }
-			m += o.money*MoneyValue(fee)/1000
-			a -= o.asset
-			fmt.Println("                <-", o)
-			fmt.Println(a, m)
-		}
-		return OrderPlanner {}, fmt.Errorf("test mode, exiting")
-	}
-
-	return OrderPlanner {targetOrders}, nil
+			return ret
+		},
+	}, nil
 }

@@ -7,42 +7,48 @@ package main
 
 import (
 	"fmt"
+	"money"
 	"sort"
-	"strings"
 )
 
-func Run_Update(market MarketController, planner OrderPlanner,
-		current []Order, a AssetValue, m MoneyValue,
+func runUpdate(market MarketController, planner OrderPlanner,
+		current []Order, balance map[string]money.Money,
 		log, log_status func(string),
 		interrupted func() bool) bool {
-	target := planner.TargetOrders(a, m)
-	cancel, place := DiffOrders(current, target)
-
+	var target, cancel, place []Order
 	{
-		prices := func(t OrderType) (ret []string) {
-			for _, o := range current {
-				if o.t == t { ret = append(ret, o.PriceString()) }
-			}
-			ret = append(ret, "X")
-			return
+		b := make([]money.Money, 0, len(balance))
+		for _, m := range balance {
+			b = append(b, m)
 		}
-		sort.Sort(SortOrdersByPriority(current))
-		b, s := prices(BUY), prices(SELL)
-		if len(s) > 2 { s = s[0:2] }
-		if len(b) > 2 { b = b[0:2] }
-		if len(b) > 1 { b[0], b[1] = b[1], b[0] }
+		target = planner.TargetOrders(b)
+		cancel, place = DiffOrders(current, target)
+	}
+	{
+		currencies := make([]string, 0, len(balance))
+		for c, _ := range balance {
+			currencies = append(currencies, c)
+		}
+		sort.Strings(currencies)
+		info := ""
+		for _, c := range currencies {
+			if info != "" { info += ", " }
+			info += balance[c].String();
+		}
 		log_status(fmt.Sprintf(
-			"Orders: %d/%d (+%d), spread: [%v] %v ~ %v [%v]",
-			len(target)-len(place), len(target), len(cancel),
-			m, strings.Join(b, " "), strings.Join(s, " "), a,
+			"Orders: %d/%d (+%d to cancel), balance: %s",
+			len(target)-len(place), len(target), len(cancel), info,
 		))
 	}
 
 	if len(cancel) > 0 {
 		for _, o := range cancel {
 			if interrupted() { return false }
-			log("Cancelling order "+o.String())
-			market.CancelOrder(o)
+			if err := market.CancelOrder(o.id); err == nil {
+				log("Cancelled order: "+o.String())
+			} else {
+				log("Warning: could not cancel order: "+o.String())
+			}
 		}
 		return false
 	}
@@ -50,8 +56,11 @@ func Run_Update(market MarketController, planner OrderPlanner,
 	if len(place) > 0 {
 		for _, o := range place {
 			if interrupted() { return false }
-			log("Placing order "+o.String())
-			market.NewOrder(o)
+			if err := market.NewOrder(o); err == nil {
+				log("Placed order: "+o.String())
+			} else {
+				log("Warning: could not place order: "+o.String())
+			}
 		}
 		return false
 	}
@@ -82,13 +91,33 @@ func Run(market MarketController, planner OrderPlanner,
 		}
 	}()
 
-	var prev_asset AssetValue = 0
-	var prev_money MoneyValue = 0
-	var prev_orders []Order = make([]Order, 0)
+	balance_similar := func(a, b map[string]money.Money) bool {
+		for _, aa := range a {
+			if !aa.Similar(b[aa.Currency()]) { return false }
+		}
+		for _, bb := range b {
+			if !bb.Similar(a[bb.Currency()]) { return false }
+		}
+		return true
+	}
+
+	prev_balance := make(map[string]money.Money)
+	prev_orders := make([]Order, 0)
 	orders_updated := false
 	for ! interrupted() {
-		ts, err := market.GetTime()
-		if err != nil { continue }
+		{
+			err := market.CheckConnection()
+			if err != nil {
+				log("Error: "+err.Error())
+				return
+			}
+		}
+		var ts Time
+		{
+			var err error
+			ts, err = market.GetTime()
+			if err != nil { continue }
+		}
 
 		if ts < currentTime {
 			panic("time going back")
@@ -99,11 +128,11 @@ func Run(market MarketController, planner OrderPlanner,
 
 		if interrupted() { return }
 		if orders_updated {
-			a, m, err := market.GetTotalBalance()
+			balance, err := market.GetTotalBalance()
 			if err == nil {
-				a_, m_ := prev_asset, prev_money
-				prev_asset, prev_money = a, m
-				if a.Similar(a_) && (m.Similar(m_)) {
+				balance_ := prev_balance
+				prev_balance = balance
+				if balance_similar(balance, balance_) {
 					orders_updated = false
 					info_updated = true
 				}
@@ -121,7 +150,7 @@ func Run(market MarketController, planner OrderPlanner,
 		}
 
 		if info_updated {
-			Run_Update(market, planner, prev_orders, prev_asset, prev_money,
+			runUpdate(market, planner, prev_orders, prev_balance,
 				log, log_status, interrupted)
 		}
 

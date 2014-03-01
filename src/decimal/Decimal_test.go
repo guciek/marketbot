@@ -31,33 +31,33 @@ func Example_Decimal_Add() {
 }
 
 func Example_ParseString() {
-	x, err := ParseString("3.14")
+	x, err := ParseDecimal("3.14")
 	fmt.Println(err == nil, x, x.exp)
-	x, err = ParseString("0.00159")
+	x, err = ParseDecimal("0.00159")
 	fmt.Println(err == nil, x, x.exp)
-	x, err = ParseString("2060090.0")
+	x, err = ParseDecimal("2060090.0")
 	fmt.Println(err == nil, x, x.exp)
-	x, err = ParseString("1030500.00000000")
+	x, err = ParseDecimal("1030500.00000000")
 	fmt.Println(err == nil, x, x.exp)
-	x, err = ParseString("1030500.00000001")
+	x, err = ParseDecimal("1030500.00000001")
 	fmt.Println(err == nil, x, x.exp)
-	x, err = ParseString("0")
+	x, err = ParseDecimal("0")
 	fmt.Println(err == nil, x, x.exp)
-	x, err = ParseString("0000000.00000")
+	x, err = ParseDecimal("0000000.00000")
 	fmt.Println(err == nil, x, x.exp)
-	x, err = ParseString(".00000001")
+	x, err = ParseDecimal(".00000001")
 	fmt.Println(err == nil, x, x.exp)
-	x, err = ParseString("100.")
+	x, err = ParseDecimal("100.")
 	fmt.Println(err == nil, x, x.exp)
-	x, err = ParseString("")
+	x, err = ParseDecimal("")
 	fmt.Println(err == nil, x, x.exp)
-	x, err = ParseString("10a")
+	x, err = ParseDecimal("10a")
 	fmt.Println(err == nil, x, x.exp)
-	x, err = ParseString("1 ")
+	x, err = ParseDecimal("1 ")
 	fmt.Println(err == nil, x, x.exp)
-	x, err = ParseString("1 2")
+	x, err = ParseDecimal("1 2")
 	fmt.Println(err == nil, x, x.exp)
-	x, err = ParseString("100.00.00")
+	x, err = ParseDecimal("100.00.00")
 	fmt.Println(err == nil, x, x.exp)
 	// Output:
 	// true 3.14 -2
@@ -77,9 +77,9 @@ func Example_ParseString() {
 }
 
 func Example_Decimal_Fractions() {
-	x, _ := ParseString("3.14")
-	y, _ := ParseString("0.00159")
-	z, _ := ParseString("0.00001")
+	x, _ := ParseDecimal("3.14")
+	y, _ := ParseDecimal("0.00159")
+	z, _ := ParseDecimal("0.00001")
 	fmt.Println(x, "+", y, "=", x.Add(y).Add(z).Sub(z))
 	fmt.Println(x, "-", y, "=", x.Sub(y))
 	fmt.Println(x, "*", y, "=", x.Mult(y))
@@ -114,11 +114,11 @@ func Example_Decimal_Fractions() {
 }
 
 func Example_Decimal_Compare() {
-	x, _ := ParseString("31415.9")
-	y, _ := ParseString("31425.9")
-	u, _ := ParseString("31415.92")
-	w, _ := ParseString("3141.59")
-	z, _ := ParseString("21415.9")
+	x, _ := ParseDecimal("31415.9")
+	y, _ := ParseDecimal("31425.9")
+	u, _ := ParseDecimal("31415.92")
+	w, _ := ParseDecimal("3141.59")
+	z, _ := ParseDecimal("21415.9")
 	fmt.Println(x.Less(y), y.Less(x))
 	fmt.Println(x.Less(u), u.Less(x))
 	fmt.Println(x.Less(w), w.Less(x))
@@ -137,7 +137,7 @@ func Example_Decimal_Compare() {
 }
 
 func Example_Decimal_Big() {
-	x, _ := ParseString("0.7")
+	x, _ := ParseDecimal("0.7")
 	y := Value(1)
 	for i := 0; i < 100; i++ {
 		y = y.Mult(x)

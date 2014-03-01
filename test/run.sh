@@ -1,4 +1,5 @@
 #!/bin/bash
 
 make || exit 1
-./bot -natural '$50.01' -target 2.5 -fee 0.4% -spread 2.5% "$@" ./test/market.py ./test/data.txt
+./bot -balance PLN/BTC -order 50.01PLN -fee 0.4% \
+	"$@" ./test/market.py ./test/data.txt

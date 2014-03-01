@@ -7,6 +7,7 @@ package main
 
 import (
 	"fmt"
+	"money"
 	"strconv"
 	"strings"
 )
@@ -15,89 +16,132 @@ func MarketTextInterface(market TextInterfaceController) MarketController {
 	parseOrders := func(lines []string) ([]Order, error) {
 		var ret []Order
 		for _, line := range lines {
-			w := strings.Split(line, " ")
-			if (len(w) == 4) && ((w[0] == "sell") || (w[0] == "buy") &&
-					(w[2] == "for")) {
-				v1, err := strconv.ParseUint(w[1], 10, 64)
-				if err != nil { return nil, err }
-				v2, err := strconv.ParseUint(w[3], 10, 64)
-				if err != nil { return nil, err }
-				if w[0] == "buy" {
-					ret = append(ret,
-						Order {AssetValue(v1), MoneyValue(v2), BUY})
-				} else {
-					ret = append(ret,
-						Order {AssetValue(v1), MoneyValue(v2), SELL})
+			var oid string
+			var part []string
+			{
+				p := strings.SplitN(line, " ", 2)
+				if len(p) != 2 {
+					return nil, fmt.Errorf("order list: %q", line)
 				}
-				
+				oid = p[0]
+				part = strings.Split(p[1], " for ")
+			}
+			if (len(part) == 2) && (len(part[0]) > 4) &&
+					(part[0][0:4] == "buy ") {
+				v1, err := money.ParseMoney(part[0][4:len(part[0])])
+				if err != nil { return nil, err }
+				v2, err := money.ParseMoney(part[1])
+				if err != nil { return nil, err }
+				ret = append(ret, Order {buy: v1, sell: v2, id: oid})
 			} else {
 				return nil, fmt.Errorf("order list: %q", line)
 			}
 		}
 		return ret, nil
 	}
+	check := uint64(1)
 	return MarketController {
 		GetTime: func() (Time, error) {
 			market.Writeln("time")
-			line := market.Readln()
-			words := append(strings.Split(line, " "), "")
+			var words []string
+			{
+				line, err := market.Readln()
+				if err != nil { return 0, err }
+				words = append(strings.Split(line, " "), "")
+			}
+			if words[0] != "time" {
+				return 0, fmt.Errorf("get time: %q", words[0])
+			}
 			v, err := strconv.ParseUint(words[1], 10, 64)
-			if (words[0] != "time") || (err != nil) {
-				return 0, fmt.Errorf("get time: %q", line)
-			}
-			return Time(v), nil
+			return Time(v), err
 		},
-		GetTotalBalance: func() (AssetValue, MoneyValue, error) {
+		GetTotalBalance: func() (map[string]money.Money, error) {
 			market.Writeln("totalbalance")
-			line := market.Readln()
-			words := append(strings.Split(line, " "), "", "")
-			if words[0] != "totalbalance" {
-				return 0, 0, fmt.Errorf("get balance: %q", line)
+			{
+				line, err := market.Readln()
+				if err != nil { return nil, err }
+				if line != "totalbalance:" {
+					return nil, fmt.Errorf("get balance: %q", line)
+				}
 			}
-			am1, err1 := strconv.ParseUint(words[1], 10, 64)
-			am2, err2 := strconv.ParseUint(words[2], 10, 64)
-			if (err1 != nil) || (err2 != nil) {
-				return 0, 0, fmt.Errorf("get balance: %q", line)
+			sum := make(map[string]money.Money)
+			{
+				line, err := market.Readln()
+				if err != nil { return nil, err }
+				for line != "." {
+					if len(line) < 1 {
+						return nil, fmt.Errorf("get balance: empty line")
+					}
+					v, err1 := money.ParseMoney(line)
+					if err1 != nil { return nil, err }
+					sum[v.Currency()] = sum[v.Currency()].Add(v)
+					line, err = market.Readln()
+					if err != nil { return nil, err }
+				}
 			}
-			return AssetValue(am1), MoneyValue(am2), nil
+			return sum, nil
 		},
 		GetOrders: func() ([]Order, error) {
 			market.Writeln("orders")
-			line := market.Readln()
-			if line != "orders:" {
-				return nil, fmt.Errorf("get orders: %q", line)
+			{
+				line, err := market.Readln()
+				if err != nil { return nil, err }
+				if line != "orders:" {
+					return nil, fmt.Errorf("get orders: %q", line)
+				}
 			}
 			var lines []string
-			line = market.Readln()
-			for line != "." {
-				if len(line) < 1 {
-					return nil, fmt.Errorf("get orders: end of input")
+			{
+				line, err := market.Readln()
+				if err != nil { return nil, err }
+				for line != "." {
+					if len(line) < 1 {
+						return nil, fmt.Errorf("get orders: empty line")
+					}
+					lines = append(lines, line)
+					line, err = market.Readln()
+					if err != nil { return nil, err }
 				}
-				lines = append(lines, line)
-				line = market.Readln()
 			}
 			ret, err := parseOrders(lines)
 			return ret, err
 		},
 		NewOrder: func(o Order) error {
-			cmd := fmt.Sprintf("%v %d for %d", o.t, o.asset, o.money)
+			cmd := fmt.Sprintf("buy %s for %s",
+				o.buy.StringPrecision(0), o.sell.StringPrecision(0))
 			market.Writeln(cmd)
-			if line := market.Readln(); line != ("ok "+cmd) {
+			line, err := market.Readln()
+			if err != nil { return err }
+			if line != "ok buy" {
 				return fmt.Errorf("new order: %q", line)
 			}
 			return nil
 		},
-		CancelOrder: func(o Order) error {
-			cmd := fmt.Sprintf("%v %d for %d", o.t, o.asset, o.money)
-			market.Writeln("cancel "+cmd)
-			if line := market.Readln(); line != ("ok cancel "+cmd) {
+		CancelOrder: func(oid string) error {
+			market.Writeln("cancel "+oid)
+			line, err := market.Readln()
+			if err != nil { return err }
+			if line != "ok cancel" {
 				return fmt.Errorf("cancel order: %q", line)
+			}
+			return nil
+		},
+		CheckConnection: func() error {
+			echo := fmt.Sprintf("echo CHECK#%d", check)
+			check++
+			market.Writeln(echo)
+			line, err := market.Readln()
+			if err != nil { return err }
+			if line != echo {
+				return fmt.Errorf("connection check failed")
 			}
 			return nil
 		},
 		Wait: func() error {
 			market.Writeln("wait")
-			if line := market.Readln(); line != "ok wait" {
+			line, err := market.Readln()
+			if err != nil { return err }
+			if line != "ok wait" {
 				return fmt.Errorf("wait: %q", line)
 			}
 			return nil

@@ -6,6 +6,7 @@
 package main
 
 import (
+	"money"
 	"sort"
 )
 
@@ -21,22 +22,22 @@ func DiffOrders(a_, b_ []Order) (aonly []Order, bonly []Order) {
 
 	for ai := len(a)-1; ai >= 0; ai-- {
 		for bi := len(b)-1; bi >= 0; bi-- {
-			if (b[bi].asset > 0) && a[ai].Similar(b[bi]) {
-				a[ai].asset = 0
-				b[bi].asset = 0
+			if (!b[bi].buy.IsNull()) && a[ai].Similar(b[bi]) {
+				a[ai].buy = money.Money {}
+				b[bi].buy = money.Money {}
 				break
 			}
 		}
 	}
 
 	for ai := range a {
-		if a[ai].asset > 0 {
+		if !a[ai].buy.IsNull() {
 			aonly = append(aonly, a[ai])
 		}
 	}
 
 	for bi := range b {
-		if b[bi].asset > 0 {
+		if !b[bi].buy.IsNull() {
 			bonly = append(bonly, b[bi])
 		}
 	}

@@ -5,22 +5,27 @@
 
 package main
 
+import (
+	"money"
+)
+
 type OrderPlanner struct {
-	TargetOrders func(AssetValue, MoneyValue) []Order
+	TargetOrders func([]money.Money) []Order
 }
 
 type TextInterfaceController struct {
-	Writeln func(string)
-	Readln func() string
+	Writeln func(string) error
+	Readln func() (string, error)
 	Exit func() error
 }
 
 type MarketController struct {
 	GetTime func() (Time, error)
-	GetTotalBalance func() (AssetValue, MoneyValue, error)
+	GetTotalBalance func() (map[string]money.Money, error)
 	GetOrders func() ([]Order, error)
-	NewOrder func(o Order) error
-	CancelOrder func(o Order) error
+	NewOrder func(Order) error
+	CancelOrder func(string) error
+	CheckConnection func() error
 	Wait func() error
 	Exit func() error
 }
