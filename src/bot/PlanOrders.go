@@ -110,15 +110,15 @@ func PlanOrders(params map[string]string) (OrderPlanner, error) {
 		delete(params, "place")
 	}
 
-	fee_inverse := decimal.Value(1)
-	if s := params["fee"]; s != "" {
+	buy_multiplier := decimal.Value(1)
+	if s := params["buy"]; s != "" {
 		v, err := percentValue(s)
-		max, _ := decimal.ParseDecimal("0.1")
-		if (err != nil) || (! v.Less(max)) {
-			return OrderPlanner {}, fmt.Errorf("invalid value of \"-fee\"")
+		if (err != nil) || (! v.Less(decimal.Value(2)) ||
+				v.Less(decimal.Value(1))) {
+			return OrderPlanner {}, fmt.Errorf("invalid value of \"-buy\"")
 		}
-		fee_inverse = fee_inverse.Div(fee_inverse.Sub(v), 5)
-		delete(params, "fee")
+		buy_multiplier = v
+		delete(params, "buy")
 	}
 
 	for p, _ := range params {
@@ -140,7 +140,7 @@ func PlanOrders(params map[string]string) (OrderPlanner, error) {
 						if ! money.PriceLess(b1, b2, o.buy, o.sell) { break }
 						b2 = b2.Sub(o.sell)
 						b1 = b1.Add(o.buy)
-						o.buy = o.buy.Mult(fee_inverse)
+						o.buy = o.buy.Mult(buy_multiplier)
 						ret = append(ret, o)
 					}
 				}

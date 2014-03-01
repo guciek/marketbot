@@ -68,8 +68,7 @@ func main() {
 			"\t"+n+" -balance ABC/XYZ -order 1.23ABC <market>\n"+
 			"\n"+
 			"Other options:\n"+
-			"\t-fee 0.12%%           Market fee, deducted from transaction gain\n"+
-			"\t-spread 1.23%%        Increase spread between buy and sell orders\n"+
+			"\t-buy 101.23%%         Increase amount bought in each order\n"+
 			"\t-test 123ABC,5.6XYZ   Calculate orders and exit\n"+
 			"\n",
 		)
