@@ -11,6 +11,21 @@ import (
 	"sort"
 )
 
+func balanceInfo(balance map[string]money.Money) string {
+	currencies := make([]string, 0, len(balance))
+	for c, _ := range balance {
+		currencies = append(currencies, c)
+	}
+	sort.Strings(currencies)
+	info := ""
+	for _, c := range currencies {
+		if info != "" { info += ", " }
+		info += balance[c].String();
+	}
+	if info == "" { return "empty" }
+	return info
+}
+
 func runUpdate(market MarketController, planner OrderPlanner,
 		current []Order, balance map[string]money.Money,
 		log, log_status func(string),
@@ -24,28 +39,16 @@ func runUpdate(market MarketController, planner OrderPlanner,
 		target = planner.TargetOrders(b)
 		cancel, place = DiffOrders(current, target)
 	}
-	{
-		currencies := make([]string, 0, len(balance))
-		for c, _ := range balance {
-			currencies = append(currencies, c)
-		}
-		sort.Strings(currencies)
-		info := ""
-		for _, c := range currencies {
-			if info != "" { info += ", " }
-			info += balance[c].String();
-		}
-		log_status(fmt.Sprintf(
-			"Orders: %d/%d (+%d to cancel), balance: %s",
-			len(target)-len(place), len(target), len(cancel), info,
-		))
-	}
+	log_status(fmt.Sprintf(
+		"Confirmed orders: %d/%d (+%d), balance: %s",
+		len(target)-len(place), len(target), len(cancel), balanceInfo(balance),
+	))
 
 	if len(cancel) > 0 {
 		for _, o := range cancel {
 			if interrupted() { return false }
 			if err := market.CancelOrder(o.id); err == nil {
-				log("Cancelled order: "+o.String())
+				log("Cancel order: "+o.String())
 			} else {
 				log("Warning: could not cancel order: "+o.String())
 			}
@@ -57,9 +60,9 @@ func runUpdate(market MarketController, planner OrderPlanner,
 		for _, o := range place {
 			if interrupted() { return false }
 			if err := market.NewOrder(o); err == nil {
-				log("Placed order: "+o.String())
+				log("New order: "+o.String())
 			} else {
-				log("Warning: could not place order: "+o.String())
+				log("Warning: could not add order: "+o.String())
 			}
 		}
 		return false
@@ -132,9 +135,11 @@ func Run(market MarketController, planner OrderPlanner,
 			if err == nil {
 				balance_ := prev_balance
 				prev_balance = balance
-				if balance_similar(balance, balance_) {
+				if balance_similar(balance_, balance) {
 					orders_updated = false
 					info_updated = true
+				} else {
+					log("Balance changed: "+balanceInfo(balance))
 				}
 			}
 		} else {
@@ -142,9 +147,14 @@ func Run(market MarketController, planner OrderPlanner,
 			if err == nil {
 				c_ := prev_orders
 				prev_orders = c
-				a, b := DiffOrders(c, c_)
+				a, b := DiffOrders(c_, c)
 				if (len(a) == 0) && (len(b) == 0) {
 					orders_updated = true
+				} else {
+					log(fmt.Sprintf(
+						"Orders changed: total %d (added %d, removed %d)",
+						len(c), len(b), len(a),
+					))
 				}
 			}
 		}

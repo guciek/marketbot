@@ -68,7 +68,7 @@ func main() {
 			"\t"+n+" -balance ABC/XYZ -order 1.23ABC <market>\n"+
 			"\n"+
 			"Other options:\n"+
-			"\t-buy 101.23%%         Increase amount bought in each order\n"+
+			"\t-gain 101.23%%        Increase amount bought in each order\n"+
 			"\t-test 123ABC,5.6XYZ   Calculate orders and exit\n"+
 			"\n",
 		)

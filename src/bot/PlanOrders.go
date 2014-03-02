@@ -111,14 +111,14 @@ func PlanOrders(params map[string]string) (OrderPlanner, error) {
 	}
 
 	buy_multiplier := decimal.Value(1)
-	if s := params["buy"]; s != "" {
+	if s := params["gain"]; s != "" {
 		v, err := percentValue(s)
 		if (err != nil) || (! v.Less(decimal.Value(2)) ||
 				v.Less(decimal.Value(1))) {
-			return OrderPlanner {}, fmt.Errorf("invalid value of \"-buy\"")
+			return OrderPlanner {}, fmt.Errorf("invalid value of \"-gain\"")
 		}
 		buy_multiplier = v
-		delete(params, "buy")
+		delete(params, "gain")
 	}
 
 	for p, _ := range params {
