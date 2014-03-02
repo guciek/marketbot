@@ -107,8 +107,7 @@ func MarketTextInterface(market TextInterfaceController) MarketController {
 			return ret, err
 		},
 		NewOrder: func(o Order) error {
-			cmd := fmt.Sprintf("buy %s for %s",
-				o.buy.StringPrecision(0), o.sell.StringPrecision(0))
+			cmd := fmt.Sprintf("buy %v for %v", o.buy, o.sell)
 			market.Writeln(cmd)
 			line, err := market.Readln()
 			if err != nil { return err }

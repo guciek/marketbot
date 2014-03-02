@@ -119,14 +119,14 @@ func (a Money) Div(b Money, precision uint32) decimal.Decimal {
 	return a.v.Div(b.v, precision)
 }
 
-func (a Money) DivPrice(b Money, precision uint32) Price {
+func (a Money) DivPrice(b Money) Price {
 	if (a.currency == "") || (b.currency == "") {
 		panic("dividing null money value")
 	}
 	if a.currency == b.currency {
 		panic("dividing values in the same currency")
 	}
-	return Price {a.v.Div(b.v, precision), a.currency, b.currency}
+	return Price {a, b}
 }
 
 func (a Money) Round(precision uint32) Money {
@@ -145,21 +145,4 @@ func (a Money) String() string {
 		panic("printing null money value")
 	}
 	return a.v.StringPrecision(2)+" "+a.currency
-}
-
-func (a Money) StringPrecision(precision uint32) string {
-	if a.currency == "" {
-		panic("printing null money value")
-	}
-	return a.v.StringPrecision(precision)+" "+a.currency
-}
-
-func PriceLess(buy1, sell1, buy2, sell2 Money) bool {
-	if (buy1.currency == "") || (sell1.currency == "") {
-		panic("comparing null money values")
-	}
-	if (buy1.currency != buy2.currency) || (sell1.currency != sell2.currency) {
-		panic("comparing prices in different currencies")
-	}
-	return buy1.v.Mult(sell2.v).Less(buy2.v.Mult(sell1.v))
 }

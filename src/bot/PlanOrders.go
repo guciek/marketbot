@@ -90,11 +90,12 @@ func PlanOrders(params map[string]string) (OrderPlanner, error) {
 		return OrderPlanner {}, fmt.Errorf("test mode, exiting")
 	}
 
-	var next func(am1, am2 money.Money) Order
+	var planner func(money.Money, money.Money) Order
+
 	if params["balance"] != "" {
-		var err error
-		next, err = planOrdersBalance(params)
+		n, err := planOrdersBalance(params)
 		if err != nil { return OrderPlanner {}, err }
+		planner = n
 	} else {
 		return OrderPlanner {}, fmt.Errorf("planning type not specified")
 	}
@@ -125,24 +126,30 @@ func PlanOrders(params map[string]string) (OrderPlanner, error) {
 		return OrderPlanner {}, fmt.Errorf("unrecognized parameter %q", "-"+p)
 	}
 
+	generate := func(b1, b2 money.Money,
+			next func(a1, a2 money.Money) Order) []Order {
+		var ret []Order
+		for k := int64(0); k < place; k++ {
+			o := next(b1, b2)
+			if o.buy.IsNull() { break }
+			if o.sell.IsNull() { break }
+			if ! o.sell.LessNotSimilar(b2) { break }
+			if ! b1.DivPrice(b2).Less(o.buy.DivPrice(o.sell)) { break }
+			b2 = b2.Sub(o.sell)
+			b1 = b1.Add(o.buy)
+			o.buy = o.buy.Mult(buy_multiplier)
+			ret = append(ret, o)
+		}
+		return ret
+	}
+
 	return OrderPlanner {
-		TargetOrders: func(balance []money.Money) []Order {
-			ret := make([]Order, 0, 12)
-			for i := 0; i < len(balance); i++ {
-				for j := 0; j < len(balance); j++ {
+		TargetOrders: func(bal []money.Money) []Order {
+			ret := make([]Order, 0, place*2)
+			for i := 0; i < len(bal); i++ {
+				for j := 0; j < len(bal); j++ {
 					if i == j { continue }
-					b1, b2 := balance[i], balance[j]
-					for k := int64(0); k < place; k++ {
-						o := next(b1, b2)
-						if o.buy.IsNull() { break }
-						if o.sell.IsNull() { break }
-						if ! o.sell.LessNotSimilar(b2) { break }
-						if ! money.PriceLess(b1, b2, o.buy, o.sell) { break }
-						b2 = b2.Sub(o.sell)
-						b1 = b1.Add(o.buy)
-						o.buy = o.buy.Mult(buy_multiplier)
-						ret = append(ret, o)
-					}
+					ret = append(ret, generate(bal[i], bal[j], planner)...)
 				}
 			}
 			return ret

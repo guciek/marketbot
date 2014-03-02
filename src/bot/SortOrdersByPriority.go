@@ -5,10 +5,6 @@
 
 package main
 
-import (
-	"money"
-)
-
 type SortOrdersByPriority []Order
 
 func (a SortOrdersByPriority) Len() int {
@@ -24,5 +20,5 @@ func (a SortOrdersByPriority) Less(i, j int) bool {
 	if a[i].buy.Currency() > a[j].buy.Currency() { return false }
 	if a[i].sell.Currency() < a[j].sell.Currency() { return true }
 	if a[i].sell.Currency() > a[j].sell.Currency() { return false }
-	return money.PriceLess(a[i].buy, a[i].sell, a[j].buy, a[j].sell)
+	return a[i].buy.DivPrice(a[i].sell).Less(a[j].buy.DivPrice(a[j].sell))
 }

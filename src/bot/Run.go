@@ -40,8 +40,8 @@ func runUpdate(market MarketController, planner OrderPlanner,
 		cancel, place = DiffOrders(current, target)
 	}
 	log_status(fmt.Sprintf(
-		"Confirmed orders: %d/%d (+%d), balance: %s",
-		len(target)-len(place), len(target), len(cancel), balanceInfo(balance),
+		"Confirmed balance: %s, orders: %d/%d (+%d)",
+		balanceInfo(balance), len(target)-len(place), len(target), len(cancel),
 	))
 
 	if len(cancel) > 0 {
@@ -133,10 +133,10 @@ func Run(market MarketController, planner OrderPlanner,
 		if orders_updated {
 			balance, err := market.GetTotalBalance()
 			if err == nil {
+				orders_updated = false
 				balance_ := prev_balance
 				prev_balance = balance
 				if balance_similar(balance_, balance) {
-					orders_updated = false
 					info_updated = true
 				} else {
 					log("Balance changed: "+balanceInfo(balance))

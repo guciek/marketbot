@@ -17,11 +17,11 @@ type Order struct {
 
 func (o Order) String() string {
 	if o.buy.Currency() > o.sell.Currency() {
-		return fmt.Sprintf("buy %v for %v (%v)",
-			o.buy, o.sell, o.buy.DivPrice(o.sell, 6))
+		return fmt.Sprintf("buy %v for %v (%s)",
+			o.buy, o.sell, o.buy.DivPrice(o.sell).StringPrecision(6))
 	} else if o.buy.Currency() < o.sell.Currency() {
-		return fmt.Sprintf("buy %v for %v (%v)",
-			o.buy, o.sell, o.sell.DivPrice(o.buy, 6))
+		return fmt.Sprintf("buy %v for %v (%s)",
+			o.buy, o.sell, o.sell.DivPrice(o.buy).StringPrecision(6))
 	} else {
 		return fmt.Sprintf("buy %v for %v", o.buy, o.sell)
 	}
