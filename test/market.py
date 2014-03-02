@@ -10,140 +10,109 @@ import json
 from urllib import request
 from random import randint
 
-def fakeMarket(store = dict()):
-	store["plns"] = 500000000
-	store["cashout_price"] = 250000000
-	store["btcs"] = (store["plns"] * 100000000000
-		) // (store["cashout_price"] * 996)
-	store["orders_sell"] = dict()
-	store["orders_buy"] = dict()
-	store["market_price"] = None
-	store["market_price_ts"] = None
-	def info():
-		o_plns = store["plns"]
-		for i in store["orders_buy"]:
-			o_plns = o_plns + store["orders_buy"][i]
-		o_btcs = store["btcs"]
-		for i in store["orders_sell"]:
-			o_btcs = o_btcs + store["orders_sell"][i]
-		sys.stderr.write(
-			"[Market] "+
-			("%0.2f mBTC, %0.2f PLN, "+
-			"cash out %0.2f PLN at %0.2f PLN/BTC\n") %
+class FakeMarket:
+	def __init__(self):
+		self.__cash = 10000.0
+		self.__btc = 0.0
+		self.__cashout_price = -1.0
+		self.__fee = 0.996
+		self.__orders = []
+		self.__nextoid = 1000
+		self.__lastprice = -1.0
+
+	def __runTransaction(self):
+		for i in range(0, len(self.__orders)):
+			o = self.__orders[i]
+			if o["type"] == "buy":
+				if o["price"] >= self.__lastprice:
+					self.__btc = self.__btc + o["amount"]*self.__fee
+					del self.__orders[i]
+					return True
+			if o["type"] == "sell":
+				if o["price"] <= self.__lastprice:
+					self.__cash = self.__cash + o["amount"]*o["price"]*self.__fee
+					del self.__orders[i]
+					return True
+		return False
+
+	def onPriceChange(self, pr):
+		if self.__cashout_price < 0.0:
+			self.__cash = self.__cash/2
+			self.__cashout_price = pr
+			self.__btc = self.__cash/(pr*self.__fee)
+		self.__lastprice = pr
+		while self.__runTransaction():
+			pass
+
+	def info(self):
+		f = self.getFunds()["funds"]
+		return (
+			("%0.5f BTC + %0.2f PLN, "+
+				"cash out %0.2f PLN at %0.2f PLN/BTC") %
 			(
-				o_btcs*0.00001,
-				o_plns*0.00001,
-				0.00001 * (o_plns + (o_btcs * store["cashout_price"] * 996)
-					// 100000000000),
-				store["cashout_price"]*0.00001
+				f["BTC"], f["PLN"],
+				f["PLN"] + (f["BTC"] * self.__cashout_price * self.__fee),
+				self.__cashout_price
 			)
 		)
-	def transactionSell(price, marketpr = False):
-		btcs = store["orders_sell"][price]
-		del store["orders_sell"][price]
-		plns = (btcs * (store["market_price"] if marketpr
-			else price) * 996) // 100000000000
-		store["plns"] += plns
-		sys.stderr.write(("[Market] Sold %.2f mBTC for %.2f PLN "+
-			"(order price %.2f PLN/BTC)\n")
-			% (btcs*0.00001, plns*0.00001, price*0.00001))
-		return True
-	def transactionBuy(price, marketpr = False):
-		plns = store["orders_buy"][price]
-		del store["orders_buy"][price]
-		btcs = (plns * 99600000000) // (1000 * (store["market_price"]
-			if marketpr else price))
-		store["btcs"] += btcs
-		sys.stderr.write(("[Market] Bought %.2f mBTC for %.2f PLN "+
-			"(order price %.2f PLN/BTC)\n")
-			% (btcs*0.00001, plns*0.00001, price*0.00001))
-		return True
-	def runTransactions(marketpr = False):
-		if not store["market_price"]: return
-		for price in sorted(store["orders_sell"].keys()):
-			if store["market_price"] < price: break
-			transactionSell(price, marketpr)
-		for price in sorted(store["orders_buy"].keys(), reverse=True):
-			if store["market_price"] > price: break
-			transactionBuy(price, marketpr)
-	def onPrice(ts, price):
-		store["market_price"] = price
-		store["market_price_ts"] = ts
-		runTransactions()
-	def sell(price, btcs):
-		btcs += randint(-10, 10)
-		price += randint(-10, 10)
-		if btcs < 1: return False
-		if price < 1: return False
-		if store["btcs"] < btcs: return False
-		while price in store["orders_sell"]:
-			price = price + 1
-		if btcs * price < 500000000000000: return False
-		store["btcs"] -= btcs
-		store["orders_sell"][price] = btcs
-		runTransactions(True)
-		return True
-	def buy(price, plns):
-		plns += randint(-10, 10)
-		price += randint(-10, 10)
-		if plns < 1: return False
-		if price < 1: return False
-		if store["plns"] < plns: return False
-		while price in store["orders_buy"]:
-			price = price - 1
-		if plns < 5000000: return False
-		store["plns"] -= plns
-		store["orders_buy"][price] = plns
-		runTransactions(True)
-		return True
-	def orders():
-		ret = []
-		for i in store["orders_buy"]:
-			descr = "#b%d buy %.8f BTC for %.5f PLN" % (
-				i, (store["orders_buy"][i] * 1.0) / i,
-				store["orders_buy"][i]*0.00001
-			)
-			ret.append(descr)
-		for i in store["orders_sell"]:
-			descr = "#s%d buy %.5f PLN for %.8f BTC" % (
-				i, (store["orders_sell"][i] * i)*0.0000000000001,
-				store["orders_sell"][i]*0.00000001
-			)
-			ret.append(descr)
-		return ret
-	def cancel(descr):
-		price = int(descr[2:])
-		if (descr[1] == 's') and (price in store["orders_sell"]):
-			store["btcs"] += store["orders_sell"][price]
-			del store["orders_sell"][price]
-			return True
-		if (descr[1] == 'b') and (price in store["orders_buy"]):
-			store["plns"] += store["orders_buy"][price]
-			del store["orders_buy"][price]
-			return True
-		return False
-	def balance():
-		o_plns = store["plns"]
-		for i in store["orders_buy"]:
-			o_plns = o_plns + store["orders_buy"][i]
-		o_btcs = store["btcs"]
-		for i in store["orders_sell"]:
-			o_btcs = o_btcs + store["orders_sell"][i]
-		return o_btcs, o_plns
-	return onPrice, sell, buy, orders, cancel, balance, info
-onPriceChange, apiSell, apiBuy, apiGetOrders, \
-	apiCancel, apiTotalBalance, printInfo = fakeMarket()
 
-def passTime(fn, store = dict()):
+	def getOrders(self):
+		return {"orders": self.__orders}
+
+	def getFunds(self):
+		sum_cash = self.__cash
+		sum_btc = self.__btc
+		for o in self.__orders:
+			if o["type"] == "sell":
+				sum_btc = sum_btc + o["amount"]
+			if o["type"] == "buy":
+				sum_cash = sum_cash + o["amount"]*o["price"]
+		return {"funds": {"PLN": sum_cash, "BTC": sum_btc}}
+
+	def cancelOrder(self, oid):
+		for i in range(0, len(self.__orders)):
+			o = self.__orders[i]
+			if str(o["id"]) == str(oid):
+				if o["type"] == "sell":
+					self.__btc = self.__btc + o["amount"]
+				if o["type"] == "buy":
+					self.__cash = self.__cash + o["amount"]*o["price"]
+				del self.__orders[i]
+				return {"result": "ok"}
+		return {"error": "order id not found"}
+
+	def buySell(self, op, amount_btc, price):
+		amount_btc = float(amount_btc)*(1.0+randint(-10,10)*0.000001)
+		price = float(price)*(1.0+randint(-10,10)*0.000001)
+		if price*amount_btc < 50.0:
+			return {"error": "order too small"}
+		if op == "buy":
+			if self.__cash < amount_btc*price:
+				return {"error": "not enough funds"}
+			self.__cash = self.__cash - amount_btc*price
+		elif op == "sell":
+			if self.__btc < amount_btc:
+				return {"error": "not enough funds"}
+			self.__btc = self.__btc - amount_btc
+		else:
+			return {"error": "invalid order type"}
+		self.__orders.append({"type": op, "amount": amount_btc,
+			"price": price, "id": "#"+str(self.__nextoid)})
+		self.__nextoid = self.__nextoid+1
+		while self.__runTransaction():
+			pass
+		return {"result": "ok"}
+
+def fakeTime(fn, market, store = dict()):
 	store["f"] = open(fn, "rb")
 	l = str(store["f"].readline(), "ascii").split(" ")
 	store["t"] = int(l[0])-1
 	store["next_ts"] = int(l[0])
 	store["next_price"] = int(l[1])
-	def nextPrice(step):
+	def passTime(step):
 		store["t"] = store["t"]+step
 		while store["t"] >= store["next_ts"]:
-			onPriceChange(store["next_ts"], store["next_price"])
+			market.onPriceChange(store["next_price"]*0.00001)
 			l = str(store["f"].readline(), "ascii")
 			if l == "":
 				store["f"].close()
@@ -154,98 +123,121 @@ def passTime(fn, store = dict()):
 		return True
 	def getTime():
 		return store["t"]
-	nextPrice(1)
-	return nextPrice, getTime
-getTime = None
+	passTime(1)
+	return passTime, getTime
 
-def cmdLine(line):
+def cmdLine(market, line, passTime, getTime):
 	if line == "": return False
-	ret = True
 	line = line.split(" ")
+
 	if line[0] == "time":
-		if randint(1, 100) <= 4:
-			print("error")
-		else:
-			print("time "+str(getTime()))
-	elif line[0] == "wait":
-		ret = passTime(60)
-		print("ok wait" if ret else "exit")
-	elif (line[0] == "buy") and (line[3] == "for"):
-		if randint(1, 100) <= 7:
-			print("error")
-		else:
-			am1 = float(line[1])*100000.0
-			am2 = float(line[4])*100000.0
-			if (line[2] == "PLN") and (line[5] == "BTC"):
-				pr = int(am1*100000.0/am2)
-				if apiSell(int(pr), int(am2*1000.0)) and (randint(1, 100) <= 96):
-					print("ok buy")
-				else:
-					print("error")
-			elif (line[2] == "BTC") and (line[5] == "PLN"):
-				pr = int(am2*100000.0/am1)
-				if apiBuy(int(pr), int(am2)) and (randint(1, 100) <= 96):
-					print("ok buy")
-				else:
-					print("error")
-			else:
-				sys.stdout.write("[Market] Rejecting an order"+
-					" with unsupported currencies")
-				print("error")
-	elif line[0] == "cancel":
-		if randint(1, 100) <= 5:
-			print("error")
-		else:
-			if apiCancel(line[1]) and (randint(1, 10) <= 8):
-				print("ok cancel")
-			else:
-				print("error")
-	elif line[0] == "orders":
-		if randint(1, 100) <= 3:
-			print("error")
-		else:
-			os = apiGetOrders()
-			if os != None:
-				print("orders:")
-				for o in os: print(o)
-				print(".")
-			else:
-				print("error")
-	elif line[0] == "totalbalance":
-		if randint(1, 100) <= 2:
-			print("error")
-		else:
-			bbtc, bpln = apiTotalBalance()
-			print("totalbalance:")
-			print("%.5f PLN"%(bpln*0.00001))
-			print("%.8f BTC"%(bbtc*0.00000001))
-			print(".")
-	elif line[0] == "echo":
+		print("time "+str(int(getTime())))
+		return True
+
+	if line[0] == "echo":
 		print("echo "+line[1])
-	elif line[0] == "exit":
+		return True
+
+	if line[0] == "wait":
+		passTime(60)
+		print("ok wait")
+		return True
+
+	if randint(1, 100) <= 3:
+		print("error")
+		return True
+
+	if (line[0] == "buy") and (line[3] == "for"):
+		am1 = float(line[1])
+		am2 = float(line[4])
+		if (line[2] == "PLN") and (line[5] == "BTC"):
+			r = market.buySell("sell", am2, am1/am2)
+			if "error" in r:
+				print("error", r["error"])
+			else:
+				print("ok buy")
+		elif (line[2] == "BTC") and (line[5] == "PLN"):
+			r = market.buySell("buy", am1, am2/am1)
+			if "error" in r:
+				print("error", r["error"])
+			else:
+				print("ok buy")
+		else:
+			print("error unsupported trading pair")
+		return True
+
+	if line[0] == "cancel":
+		r = market.cancelOrder(line[1])
+		if "error" in r:
+			print("error", r["error"])
+		else:
+			print("ok cancel")
+		return True
+
+	if line[0] == "orders":
+		r = market.getOrders()
+		if "orders" not in r:
+			print("error")
+			return True
+		print("orders:")
+		for o in r["orders"]:
+			t = str(o["type"])
+			pr = float(o["price"])
+			am_btc = float(o["amount"])
+			am_pln = am_btc*pr
+			oid = str(o["id"])
+			if t == "sell":
+				print("%s buy %.5f PLN for %.8f BTC" % (oid, am_pln, am_btc))
+			elif t == "buy":
+				print("%s buy %.8f BTC for %.5f PLN" % (oid, am_btc, am_pln))
+			else:
+				print("unknown order type")
+		print(".")
+		return True
+
+	elif line[0] == "totalbalance":
+		r = market.getFunds()
+		if "funds" not in r:
+			print("error")
+			return True
+		funds = dict()
+		for k in r["funds"]:
+			v = float(r["funds"][k])
+			k = str(k).lower()
+			if k in funds:
+				funds[k] = funds[k]+v
+			else:
+				funds[k] = v
+		print("totalbalance:")
+		for k in funds:
+			print("%.8f %s" % (funds[k], k.upper()))
+		print(".")
+		return True
+
+	if line[0] == "exit":
 		print("exit")
-		ret = False
-	else:
-		print("error Unknown command")
-	sys.stdout.flush()
-	return ret
+		return False
+
+	print("error Unknown command")
+	return True
+
+def run():
+	b = FakeMarket()
+	passTime, getTime = fakeTime(sys.argv[1], b)
+	try:
+		for line in sys.stdin:
+			if not cmdLine(b, line.strip(), passTime, getTime):
+				break
+			sys.stdout.flush()
+			passTime(1)
+	finally:
+		sys.stderr.write("[Market] "+b.info()+"\n")
 
 try:
-	if len(sys.argv) < 2:
-		sys.stderr.write("\nUsage:\n\ttest-market.py <log-file>\n\n")
-	else:
-		printInfo()
-		passTime, getTime = passTime(sys.argv[1])
-		try:
-			for line in sys.stdin:
-				if not cmdLine(line.strip()):
-					break
-				passTime(5)
-		except KeyboardInterrupt:
-			sys.stderr.write("\n[Market] Interrupted\n")
-		except Exception as e:
-			sys.stderr.write("\n[Market] Error: "+str(e)+"\n")
-		printInfo()
+	run()
+except IOError:
+	pass
+except KeyboardInterrupt:
+	pass
 except Exception as e:
-	sys.stderr.write("\n[Market] Error: "+str(e)+"\n")
-	sys.exit(1)
+	sys.stderr.write("[Market] Error: "+str(e)+"\n")

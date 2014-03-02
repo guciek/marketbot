@@ -41,7 +41,7 @@ func ParseMoney(s string) (Money, error) {
 	if currency.Len() < 1 {
 		return Money {}, fmt.Errorf("missing currency")
 	}
-	if currency.Len() > 3 {
+	if currency.Len() > 5 {
 		return Money {}, fmt.Errorf("currency name too long")
 	}
 	v_decimal, err := decimal.ParseDecimal(value)
@@ -68,8 +68,8 @@ func (a Money) Similar(b Money) bool {
 		return a.v.Equals(b.v)
 	}
 	// TODO: this is inefficient
-	return a.v.Div(b.v, 4).Equals(decimal.Value(1)) &&
-		b.v.Div(a.v, 4).Equals(decimal.Value(1))
+	return a.v.Div(b.v, 3).Equals(decimal.Value(1)) &&
+		b.v.Div(a.v, 3).Equals(decimal.Value(1))
 }
 
 func (a Money) LessNotSimilar(b Money) bool {

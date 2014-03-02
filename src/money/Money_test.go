@@ -14,8 +14,6 @@ func Example_MoneyParse() {
 	fmt.Println(err == nil, x)
 	y, err := ParseMoney("0.52uSd  ")
 	fmt.Println(err == nil, y)
-	_, err = ParseMoney("0.0017 mBTC")
-	fmt.Println(err == nil)
 	_, err = ParseMoney("0.0017 B C")
 	fmt.Println(err == nil)
 	_, err = ParseMoney("0.0.017 BTC")
@@ -29,7 +27,6 @@ func Example_MoneyParse() {
 	// Output:
 	// true 10.00 USD
 	// true 0.52 USD
-	// false
 	// false
 	// false
 	// false

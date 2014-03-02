@@ -20,7 +20,7 @@ func balanceInfo(balance map[string]money.Money) string {
 	info := ""
 	for _, c := range currencies {
 		if info != "" { info += ", " }
-		info += balance[c].String();
+		info += balance[c].Round(6).String();
 	}
 	if info == "" { return "empty" }
 	return info
@@ -28,8 +28,7 @@ func balanceInfo(balance map[string]money.Money) string {
 
 func runUpdate(market MarketController, planner OrderPlanner,
 		current []Order, balance map[string]money.Money,
-		log, log_status func(string),
-		interrupted func() bool) bool {
+		log func(string), interrupted func() bool) bool {
 	var target, cancel, place []Order
 	{
 		b := make([]money.Money, 0, len(balance))
@@ -39,8 +38,8 @@ func runUpdate(market MarketController, planner OrderPlanner,
 		target = planner.TargetOrders(b)
 		cancel, place = DiffOrders(current, target)
 	}
-	log_status(fmt.Sprintf(
-		"Confirmed balance: %s, orders: %d/%d (+%d)",
+	log(fmt.Sprintf(
+		"Confirmed balance: %s orders: %d/%d (+%d)",
 		balanceInfo(balance), len(target)-len(place), len(target), len(cancel),
 	))
 
@@ -84,14 +83,17 @@ func Run(market MarketController, planner OrderPlanner,
 	}
 
 	log_status := func() func(string) {
+		oldlog := log
 		var last_m string
 		var last_t Time
-		return func(m string) {
-			if (m == last_m) && (last_t+3590 > currentTime) { return }
+		newlog := func(status bool) func (string) { return func(m string) {
+			if (m == last_m) && status && (last_t+3590 > currentTime) { return }
 			last_m = m
 			last_t = currentTime
-			log(m)
-		}
+			oldlog(m)
+		}}
+		log = newlog(false)
+		return newlog(true)
 	}()
 
 	balance_similar := func(a, b map[string]money.Money) bool {
@@ -161,7 +163,7 @@ func Run(market MarketController, planner OrderPlanner,
 
 		if info_updated {
 			runUpdate(market, planner, prev_orders, prev_balance,
-				log, log_status, interrupted)
+				log_status, interrupted)
 		}
 
 		if interrupted() { return }
