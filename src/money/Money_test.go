@@ -22,11 +22,14 @@ func Example_MoneyParse() {
 	fmt.Println(err == nil)
 	_, err = ParseMoney("0.0017 BT$")
 	fmt.Println(err == nil)
+	_, err = ParseMoney("123")
+	fmt.Println(err == nil)
 	fmt.Println(x.Add(y))
 	fmt.Println(x.Sub(y))
 	// Output:
 	// true 10.00 USD
 	// true 0.52 USD
+	// false
 	// false
 	// false
 	// false

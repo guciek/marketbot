@@ -38,6 +38,9 @@ func ParseMoney(s string) (Money, error) {
 		}
 		currency.WriteByte(byte(c))
 	}
+	if currency.Len() < 1 {
+		return Money {}, fmt.Errorf("missing currency")
+	}
 	if currency.Len() > 3 {
 		return Money {}, fmt.Errorf("currency name too long")
 	}

@@ -65,11 +65,12 @@ func main() {
 		fmt.Fprintf(
 			os.Stderr,
 			"\nUsage:\n"+
-			"\t"+n+" -balance ABC/XYZ -order 1.23ABC <market>\n"+
+			"\t"+n+" -balance abc/xyz -order 1.23abc <market>\n"+
+			"\t"+n+" -natural 12.34abc/xyz -order 1.23abc <market>\n"+
 			"\n"+
 			"Other options:\n"+
 			"\t-gain 101.23%%        Increase amount bought in each order\n"+
-			"\t-test 123ABC,5.6XYZ   Calculate orders and exit\n"+
+			"\t-test 123abc,4.5xyz   Calculate orders and exit\n"+
 			"\n",
 		)
 		return
