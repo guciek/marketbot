@@ -22,8 +22,26 @@ func balanceInfo(balance map[string]money.Money) string {
 		if info != "" { info += ", " }
 		info += balance[c].Round(6).String()
 	}
-	if info == "" { return "empty" }
+	if info == "" { return "zero balance" }
 	return info
+}
+
+func orderInfo(ords_ []Order) string {
+	if (ords_ == nil) || (len(ords_) < 1) { return "none" }
+	ords := make([]Order, len(ords_))
+	copy(ords, ords_)
+	sort.Sort(SortOrdersByPriority(ords))
+	ret := ""
+	m := make(map[string]bool)
+	for _, o := range ords {
+		n := o.buy.Currency()+" "+o.sell.Currency()
+		if _, found := m[n]; found { continue }
+		m[n] = true
+		if ret != "" { ret += ", " }
+		ret += o.ShortString()
+	}
+	if len(m) < len(ords) { ret += ", ..." }
+	return ret
 }
 
 func runUpdateInfo(market MarketController,
@@ -49,6 +67,7 @@ func runUpdateInfo(market MarketController,
 	var prev_orders []Order
 
 	orders_updated := false
+	last_order_info := ""
 	return func() ([]Order, map[string]money.Money) {
 		if orders_updated {
 			balance_arr, err := market.GetTotalBalance()
@@ -71,15 +90,17 @@ func runUpdateInfo(market MarketController,
 		c_ := prev_orders
 		prev_orders = c
 		if c_ == nil {
-			log(fmt.Sprintf("Orders: total %d", len(c)))
+			last_order_info = orderInfo(c)
+			log("Orders: "+last_order_info)
 			return nil, nil
 		}
 		a, b := DiffOrders(c_, c)
 		if (len(a) != 0) || (len(b) != 0) {
-			log(fmt.Sprintf(
-				"Orders changed: total %d (added %d, removed %d)",
-				len(c), len(b), len(a),
-			))
+			new_info := orderInfo(c)
+			if new_info != last_order_info {
+				log("Orders changed: "+new_info)
+				last_order_info = new_info
+			}
 			return nil, nil
 		}
 		orders_updated = true
@@ -99,10 +120,6 @@ func runUpdateOrders(market MarketController, planner OrderPlanner,
 		target = planner.TargetOrders(b)
 		cancel, place = DiffOrders(current, target)
 	}
-	log(fmt.Sprintf(
-		"Confirmed status: %s, orders: %d/%d (+%d)",
-		balanceInfo(balance), len(target)-len(place), len(target), len(cancel),
-	))
 
 	if len(cancel) > 0 {
 		for _, o := range cancel {
@@ -127,6 +144,11 @@ func runUpdateOrders(market MarketController, planner OrderPlanner,
 		}
 		return false
 	}
+
+	log(fmt.Sprintf(
+		"Status: %s, orders: %d/%d",
+		balanceInfo(balance), len(target)-len(place), len(target),
+	))
 
 	return true
 }

@@ -24,18 +24,25 @@ func OrderPrintPrice(p money.Price) {
 	order__prCurrencyPairs[p.Currency1()+" "+p.Currency2()] = true
 }
 
-func (o Order) String() string {
-	var pr money.Price
+func (o Order) ShortString() string {
 	if order__prCurrencyPairs[o.buy.Currency()+" "+o.sell.Currency()] {
-		pr = o.buy.DivPrice(o.sell)
-	} else if order__prCurrencyPairs[o.sell.Currency()+" "+o.buy.Currency()] {
-		pr = o.sell.DivPrice(o.buy)
+		return fmt.Sprintf("sell at %v",
+			o.buy.DivPrice(o.sell).StringPrecision(6))
 	}
-	if pr.IsNull() {
-		return fmt.Sprintf("buy %v for %v", o.buy, o.sell)
+	return fmt.Sprintf("buy at %v",
+		o.sell.DivPrice(o.buy).StringPrecision(6))
+}
+
+func (o Order) String() string {
+	if order__prCurrencyPairs[o.buy.Currency()+" "+o.sell.Currency()] {
+		return fmt.Sprintf("sell %v at %v",
+			o.sell, o.buy.DivPrice(o.sell).StringPrecision(6))
 	}
-	return fmt.Sprintf("buy %v for %v (%v)", o.buy, o.sell,
-		pr.StringPrecision(6))
+	if order__prCurrencyPairs[o.sell.Currency()+" "+o.buy.Currency()] {
+		return fmt.Sprintf("buy %v at %v",
+			o.buy, o.sell.DivPrice(o.buy).StringPrecision(6))
+	}
+	return fmt.Sprintf("buy %v for %v", o.buy, o.sell)
 }
 
 func (o1 Order) Similar(o2 Order) bool {
