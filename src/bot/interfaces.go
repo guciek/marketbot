@@ -21,7 +21,7 @@ type TextInterfaceController struct {
 
 type MarketController struct {
 	GetTime func() (Time, error)
-	GetTotalBalance func() (map[string]money.Money, error)
+	GetTotalBalance func() ([]money.Money, error)
 	GetOrders func() ([]Order, error)
 	NewOrder func(Order) error
 	CancelOrder func(string) error

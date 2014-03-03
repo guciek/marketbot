@@ -56,6 +56,20 @@ func (a Money) Currency() string {
 	return a.currency
 }
 
+func (a Money) Zero() Money {
+	if a.currency == "" {
+		panic("null money value")
+	}
+	return Money {decimal.Decimal {}, a.currency}
+}
+
+func (a Money) IsZero() bool {
+	if a.currency == "" {
+		panic("comparing null money value")
+	}
+	return a.v.IsZero()
+}
+
 func (a Money) Similar(b Money) bool {
 	if (a.currency == "") && (b.currency == "") {
 		panic("comparing null money value")
@@ -140,7 +154,7 @@ func (a Money) Round(precision uint32) Money {
 }
 
 func (a Money) IsNull() bool {
-	return a.currency == "";
+	return a.currency == ""
 }
 
 func (a Money) String() string {

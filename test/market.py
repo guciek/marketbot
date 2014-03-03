@@ -148,16 +148,16 @@ def cmdLine(market, line, passTime, getTime):
 		return True
 
 	if (line[0] == "buy") and (line[3] == "for"):
-		am1 = float(line[1])
-		am2 = float(line[4])
+		am1 = line[1]
+		am2 = line[4]
 		if (line[2] == "PLN") and (line[5] == "BTC"):
-			r = market.buySell("sell", am2, am1/am2)
+			r = market.buySell("sell", am2, float(am1)/float(am2))
 			if "error" in r:
 				print("error", r["error"])
 			else:
 				print("ok buy")
 		elif (line[2] == "BTC") and (line[5] == "PLN"):
-			r = market.buySell("buy", am1, am2/am1)
+			r = market.buySell("buy", am1, float(am2)/float(am1))
 			if "error" in r:
 				print("error", r["error"])
 			else:
@@ -200,17 +200,9 @@ def cmdLine(market, line, passTime, getTime):
 		if "funds" not in r:
 			print("error")
 			return True
-		funds = dict()
-		for k in r["funds"]:
-			v = float(r["funds"][k])
-			k = str(k).lower()
-			if k in funds:
-				funds[k] = funds[k]+v
-			else:
-				funds[k] = v
 		print("totalbalance:")
-		for k in funds:
-			print("%.8f %s" % (funds[k], k.upper()))
+		for k in r["funds"]:
+			print("%s %s" % (str(r["funds"][k]), str(k).upper()))
 		print(".")
 		return True
 

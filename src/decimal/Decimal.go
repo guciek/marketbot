@@ -215,12 +215,16 @@ func (lhs Decimal) Div(rhs Decimal, precision uint32) Decimal {
 	return ret
 }
 
+func (a Decimal) IsZero() bool {
+	return a.v == nil
+}
+
 func (lhs Decimal) Equals(rhs Decimal) bool {
 	if (rhs.v == nil) && (lhs.v == nil) { return true }
 	if lhs.v == nil { return false }
 	if rhs.v == nil { return false }
 	if lhs.exp != rhs.exp { return false }
-	return lhs.v.Cmp(rhs.v) == 0;
+	return lhs.v.Cmp(rhs.v) == 0
 }
 
 func (lhs Decimal) Less(rhs Decimal) bool {
@@ -232,7 +236,7 @@ func (lhs Decimal) Less(rhs Decimal) bool {
 	if d < 0 { return true }
 	for i := 0; (i < len(l)) && (i < len(r)); i++ {
 		if l[i] != r[i] {
-			return l[i] < r[i];
+			return l[i] < r[i]
 		}
 	}
 	return len(l) < len(r)

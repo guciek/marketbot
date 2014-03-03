@@ -17,9 +17,9 @@ func Example_Decimal_Add() {
 	fmt.Println(n1, n1.exp)
 	n1 = n2.Add(Value(7)).Add(Value(2493))
 	fmt.Println(n1, n1.exp)
-	n1 = Value(11000);
+	n1 = Value(11000)
 	fmt.Println(n1, n1.exp)
-	n1 = n1.Add(n2);
+	n1 = n1.Add(n2)
 	fmt.Println(n1, n1.exp)
 	// Output:
 	// 507

@@ -19,6 +19,7 @@ func PlanOrders_Natural(params map[string]string) (
 	target, err = money.ParsePrice(params["natural"])
 	if err != nil { return }
 	delete(params, "natural")
+	OrderPrintPrice(target)
 
 	if params["order"] == "" {
 		err = fmt.Errorf("missing parameter \"-order\"")

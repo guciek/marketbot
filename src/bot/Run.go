@@ -20,13 +20,74 @@ func balanceInfo(balance map[string]money.Money) string {
 	info := ""
 	for _, c := range currencies {
 		if info != "" { info += ", " }
-		info += balance[c].Round(6).String();
+		info += balance[c].Round(6).String()
 	}
 	if info == "" { return "empty" }
 	return info
 }
 
-func runUpdate(market MarketController, planner OrderPlanner,
+func runUpdateInfo(market MarketController,
+		log func(string)) func() ([]Order, map[string]money.Money) {
+	balance_similar := func(a, b map[string]money.Money) bool {
+		for _, aa := range a {
+			if !aa.Similar(b[aa.Currency()]) { return false }
+		}
+		for _, bb := range b {
+			if !bb.Similar(a[bb.Currency()]) { return false }
+		}
+		return true
+	}
+	balance2map := func(b []money.Money) map[string]money.Money {
+		ret := make(map[string]money.Money)
+		for _, m := range b {
+			ret[m.Currency()] = m
+		}
+		return ret
+	}
+
+	var prev_balance map[string]money.Money
+	var prev_orders []Order
+
+	orders_updated := false
+	return func() ([]Order, map[string]money.Money) {
+		if orders_updated {
+			balance_arr, err := market.GetTotalBalance()
+			if err != nil { return nil, nil }
+			orders_updated = false
+			balance_ := prev_balance
+			prev_balance = balance2map(balance_arr)
+			if balance_ == nil {
+				log("Balance: "+balanceInfo(prev_balance))
+				return nil, nil
+			}
+			if ! balance_similar(balance_, prev_balance) {
+				log("Balance changed: "+balanceInfo(prev_balance))
+				return nil, nil
+			}
+			return prev_orders, prev_balance
+		}
+		c, err := market.GetOrders()
+		if err != nil { return nil, nil }
+		c_ := prev_orders
+		prev_orders = c
+		if c_ == nil {
+			log(fmt.Sprintf("Orders: total %d", len(c)))
+			return nil, nil
+		}
+		a, b := DiffOrders(c_, c)
+		if (len(a) != 0) || (len(b) != 0) {
+			log(fmt.Sprintf(
+				"Orders changed: total %d (added %d, removed %d)",
+				len(c), len(b), len(a),
+			))
+			return nil, nil
+		}
+		orders_updated = true
+		return nil, nil
+	}
+}
+
+func runUpdateOrders(market MarketController, planner OrderPlanner,
 		current []Order, balance map[string]money.Money,
 		log func(string), interrupted func() bool) bool {
 	var target, cancel, place []Order
@@ -39,7 +100,7 @@ func runUpdate(market MarketController, planner OrderPlanner,
 		cancel, place = DiffOrders(current, target)
 	}
 	log(fmt.Sprintf(
-		"Confirmed balance: %s orders: %d/%d (+%d)",
+		"Confirmed status: %s, orders: %d/%d (+%d)",
 		balanceInfo(balance), len(target)-len(place), len(target), len(cancel),
 	))
 
@@ -47,7 +108,7 @@ func runUpdate(market MarketController, planner OrderPlanner,
 		for _, o := range cancel {
 			if interrupted() { return false }
 			if err := market.CancelOrder(o.id); err == nil {
-				log("Cancel order: "+o.String())
+				log("Cancelled order: "+o.String())
 			} else {
 				log("Warning: could not cancel order: "+o.String())
 			}
@@ -61,7 +122,7 @@ func runUpdate(market MarketController, planner OrderPlanner,
 			if err := market.NewOrder(o); err == nil {
 				log("New order: "+o.String())
 			} else {
-				log("Warning: could not add order: "+o.String())
+				log("Warning: could not place order: "+o.String())
 			}
 		}
 		return false
@@ -96,19 +157,7 @@ func Run(market MarketController, planner OrderPlanner,
 		return newlog(true)
 	}()
 
-	balance_similar := func(a, b map[string]money.Money) bool {
-		for _, aa := range a {
-			if !aa.Similar(b[aa.Currency()]) { return false }
-		}
-		for _, bb := range b {
-			if !bb.Similar(a[bb.Currency()]) { return false }
-		}
-		return true
-	}
-
-	prev_balance := make(map[string]money.Money)
-	prev_orders := make([]Order, 0)
-	orders_updated := false
+	info_updater := runUpdateInfo(market, log_status)
 	for ! interrupted() {
 		{
 			err := market.CheckConnection()
@@ -129,41 +178,9 @@ func Run(market MarketController, planner OrderPlanner,
 		}
 		currentTime = ts
 
-		info_updated := false
-
 		if interrupted() { return }
-		if orders_updated {
-			balance, err := market.GetTotalBalance()
-			if err == nil {
-				orders_updated = false
-				balance_ := prev_balance
-				prev_balance = balance
-				if balance_similar(balance_, balance) {
-					info_updated = true
-				} else {
-					log("Balance changed: "+balanceInfo(balance))
-				}
-			}
-		} else {
-			c, err := market.GetOrders()
-			if err == nil {
-				c_ := prev_orders
-				prev_orders = c
-				a, b := DiffOrders(c_, c)
-				if (len(a) == 0) && (len(b) == 0) {
-					orders_updated = true
-				} else {
-					log(fmt.Sprintf(
-						"Orders changed: total %d (added %d, removed %d)",
-						len(c), len(b), len(a),
-					))
-				}
-			}
-		}
-
-		if info_updated {
-			runUpdate(market, planner, prev_orders, prev_balance,
-				log_status, interrupted)
+		if o, b := info_updater(); o != nil {
+			runUpdateOrders(market, planner, o, b, log_status, interrupted)
 		}
 
 		if interrupted() { return }

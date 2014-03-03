@@ -41,6 +41,10 @@ func (p1 Price) Less(p2 Price) bool {
 	return p1.am1.v.Mult(p2.am2.v).Less(p2.am1.v.Mult(p1.am2.v))
 }
 
+func (p Price) IsNull() bool {
+	return (p.am1.currency == "") || (p.am2.currency == "")
+}
+
 func (p Price) Currency1() string {
 	return p.am1.Currency()
 }
