@@ -75,15 +75,35 @@ func PlanOrders(params map[string]string) (OrderPlanner, error) {
 		delete(params, "place")
 	}
 
-	buy_multiplier := decimal.Value(1)
+	fee_mult := decimal.Value(1)
+	if s := params["fee"]; s != "" {
+		v, err := percentValue(s)
+		if (err != nil) || (! v.Add(v).Less(decimal.Value(1))) {
+			return OrderPlanner {}, fmt.Errorf("invalid value of \"-fee\"")
+		}
+		fee_mult = decimal.Value(1).Div(decimal.Value(1).Sub(v), 8)
+		if fee_mult.Less(decimal.Value(1)) { panic("assertion failed") }
+		delete(params, "fee")
+	}
+
+	gain_mult := decimal.Value(1)
 	if s := params["gain"]; s != "" {
 		v, err := percentValue(s)
-		if (err != nil) || (! v.Less(decimal.Value(2)) ||
-				v.Less(decimal.Value(1))) {
+		if (err != nil) || (! v.Less(decimal.Value(1))) {
 			return OrderPlanner {}, fmt.Errorf("invalid value of \"-gain\"")
 		}
-		buy_multiplier = v
+		gain_mult = v.Add(decimal.Value(1))
 		delete(params, "gain")
+	}
+
+	gain_addprice := money.Price {}
+	if s := params["pricegain"]; s != "" {
+		v, err := money.ParsePrice(s)
+		if err != nil {
+			return OrderPlanner {}, fmt.Errorf("invalid value of \"-pricegain\"")
+		}
+		gain_addprice = v
+		delete(params, "pricegain")
 	}
 
 	for p, _ := range params {
@@ -98,9 +118,28 @@ func PlanOrders(params map[string]string) (OrderPlanner, error) {
 			if o.buy.IsNull() { break }
 			if o.sell.IsNull() { break }
 			if ! o.sell.LessNotSimilar(b2) { break }
+			if ! gain_addprice.IsNull() {
+				pp := gain_addprice
+				var add money.Money
+				if (o.sell.Currency() == pp.Currency1()) &&
+						(o.buy.Currency() == pp.Currency2()) {
+					m := o.buy.MultPrice(pp, 12)
+					if ! m.LessNotSimilar(o.sell) { break }
+					pp = o.buy.DivPrice(o.sell.Sub(m))
+					add = o.sell.MultPrice(pp, 8).Sub(o.buy)
+				} else if (o.buy.Currency() == pp.Currency1()) &&
+						(o.sell.Currency() == pp.Currency2()) {
+					add = o.sell.MultPrice(pp, 8)
+				} else {
+					panic("price gain "+pp.String()+
+						" is not applicable to order: "+o.String())
+				}
+				o.buy = o.buy.Add(add)
+			}
+			o.buy = o.buy.Mult(gain_mult)
 			b2 = b2.Sub(o.sell)
 			b1 = b1.Add(o.buy)
-			o.buy = o.buy.Mult(buy_multiplier)
+			o.buy = o.buy.Mult(fee_mult)
 			ret = append(ret, o)
 		}
 		return ret

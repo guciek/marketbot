@@ -41,6 +41,13 @@ func (p1 Price) Less(p2 Price) bool {
 	return p1.am1.v.Mult(p2.am2.v).Less(p2.am1.v.Mult(p1.am2.v))
 }
 
+func (p Price) Inverse() Price {
+	if (p.am1.currency == "") || (p.am1.currency == "") {
+		panic("inverse of null price value")
+	}
+	return Price {am1: p.am2, am2: p.am1}
+}
+
 func (p Price) IsNull() bool {
 	return (p.am1.currency == "") || (p.am2.currency == "")
 }

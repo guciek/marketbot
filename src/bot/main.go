@@ -69,7 +69,9 @@ func main() {
 			"\t"+n+" -natural 12.34abc/xyz -order 1.23abc <market>\n"+
 			"\n"+
 			"Other options:\n"+
-			"\t-gain 101.23%%        Increase amount bought in each order\n"+
+			"\t-fee 0.12%%           Compensate for transacion fee\n"+
+			"\t-gain 1.23%%          Percentage gain for each transaction\n"+
+			"\t-pricegain 1abc/xyz   Price diff gain for each transaction\n"+
 			"\t-test 123abc,4.5xyz   Calculate orders and exit\n"+
 			"\n",
 		)
@@ -79,8 +81,9 @@ func main() {
 	var planner OrderPlanner
 	{
 		params := make(map[string]string)
-		for len(args) >= 3 {
+		for len(args) >= 2 {
 			if args[1][0] != '-' { break }
+			if len(args) < 3 { panic("empty value of "+args[1]) }
 			name, val := args[1][1:], args[2]
 			if len(val) < 1 { panic("invalid value of -"+name) }
 			args = args[2:]

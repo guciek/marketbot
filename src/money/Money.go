@@ -146,6 +146,16 @@ func (a Money) DivPrice(b Money) Price {
 	return Price {a, b}
 }
 
+func (a Money) MultPrice(p Price, precision uint32) Money {
+	if (a.currency == "") || p.IsNull() {
+		panic("multiplying null money or price value")
+	}
+	if a.currency != p.am2.currency {
+		panic("multiplying values in different currencies")
+	}
+	return Money {a.v.Mult(p.am1.v).Div(p.am2.v, precision), p.am1.currency}
+}
+
 func (a Money) Round(precision uint32) Money {
 	if a.currency == "" {
 		panic("rounding null money value")
