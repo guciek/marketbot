@@ -53,10 +53,16 @@ func (p Price) IsNull() bool {
 }
 
 func (p Price) Currency1() string {
+	if p.am1.currency == "" {
+		panic("getting currency of null price value")
+	}
 	return p.am1.Currency()
 }
 
 func (p Price) Currency2() string {
+	if p.am2.currency == "" {
+		panic("getting currency of null price value")
+	}
 	return p.am2.Currency()
 }
 

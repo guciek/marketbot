@@ -97,6 +97,16 @@ func (a Money) LessNotSimilar(b Money) bool {
 	return a.v.Less(b.v)
 }
 
+func (a Money) LessNotEqual(b Money) bool {
+	if (a.currency == "") || (b.currency == "") {
+		panic("comparing null money value")
+	}
+	if a.currency != b.currency {
+		panic("comparing values in different currencies")
+	}
+	return a.v.Less(b.v)
+}
+
 func (a Money) Add(b Money) Money {
 	if (a.currency == "") && (b.currency == "") {
 		panic("adding null money values")

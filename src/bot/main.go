@@ -65,14 +65,14 @@ func main() {
 		fmt.Fprintf(
 			os.Stderr,
 			"\nUsage:\n"+
-			"\t"+n+" -balance abc/xyz -order 1.23abc <market>\n"+
-			"\t"+n+" -natural 12.34abc/xyz -order 1.23abc <market>\n"+
+			"\t"+n+" -balance abc/xyz,1.23abc <market>\n"+
+			"\t"+n+" -natural 12.34abc/xyz,1.23abc <market>\n"+
 			"\n"+
 			"Other options:\n"+
-			"\t-fee 0.12%%           Compensate for transacion fee\n"+
-			"\t-gain 1.23%%          Percentage gain for each transaction\n"+
-			"\t-pricegain 1abc/xyz   Price diff gain for each transaction\n"+
-			"\t-test 123abc,4.5xyz   Calculate orders and exit\n"+
+			"\t-fee 0.12%%            Compensate for transaction fee\n"+
+			"\t-mingain 1.23%%        Minimum gain for each transaction\n"+
+			"\t-mingain 1.23abc/xyz   Minimum gain for each transaction\n"+
+			"\t-test 123abc,4.5xyz    Calculate orders and exit\n"+
 			"\n",
 		)
 		return
@@ -80,14 +80,14 @@ func main() {
 
 	var planner OrderPlanner
 	{
-		params := make(map[string]string)
+		params := make(map[string][]string)
 		for len(args) >= 2 {
 			if args[1][0] != '-' { break }
 			if len(args) < 3 { panic("empty value of "+args[1]) }
 			name, val := args[1][1:], args[2]
 			if len(val) < 1 { panic("invalid value of -"+name) }
 			args = args[2:]
-			params[name] = val
+			params[name] = append(params[name], val)
 		}
 		var err error
 		planner, err = PlanOrders(params)

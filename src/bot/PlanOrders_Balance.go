@@ -8,32 +8,35 @@ package main
 import (
 	"fmt"
 	"money"
+	"strings"
 )
 
-func PlanOrders_Balance(params map[string]string) (
+func PlanOrders_Balance(params_str string) (
 		ret func(am1, am2 money.Money) Order, err error) {
-	var pair money.Price
-	{
-		pair, err = money.ParsePrice("1 "+params["balance"])
-		if err != nil { return }
-	}
-	delete(params, "balance")
-	OrderPrintPrice(pair)
-
-	if params["order"] == "" {
-		err = fmt.Errorf("missing parameter \"-order\"")
+	params := strings.Split(params_str, ",")
+	if len(params) != 2 {
+		err = fmt.Errorf("invalid value of \"-balance\"")
 		return
 	}
+
+	var pair money.Price
+	pair, err = money.ParsePrice("1 "+params[0])
+	if err != nil {
+		err = fmt.Errorf("invalid value of \"-balance\"")
+		return
+	}
+	OrderPrintPrice(pair)
+
 	var size money.Money
-	size, err = money.ParseMoney(params["order"])
+	size, err = money.ParseMoney(params[1])
 	if err != nil { return }
+
 	if (size.Currency() != pair.Currency1()) &&
 			(size.Currency() != pair.Currency2()) {
-		err = fmt.Errorf("currency of \"-order\" should be %q or %q",
+		err = fmt.Errorf("order size should be in %q or %q",
 			pair.Currency1(), pair.Currency2())
 		return
 	}
-	delete(params, "order")
 
 	match := func(a, b money.Money) bool {
 		if a.Currency() != pair.Currency1() { return false }

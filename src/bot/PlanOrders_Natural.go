@@ -13,28 +13,29 @@ import (
 	"strings"
 )
 
-func PlanOrders_Natural(params map[string]string) (
+func PlanOrders_Natural(params_str string) (
 		ret func(am1, am2 money.Money) Order, err error) {
-	var target money.Price
-	target, err = money.ParsePrice(params["natural"])
-	if err != nil { return }
-	delete(params, "natural")
-	OrderPrintPrice(target)
-
-	if params["order"] == "" {
-		err = fmt.Errorf("missing parameter \"-order\"")
+	params := strings.Split(params_str, ",")
+	if len(params) != 2 {
+		err = fmt.Errorf("invalid value of \"-balance\"")
 		return
 	}
-	var size money.Money
-	size, err = money.ParseMoney(params["order"])
+
+	var target money.Price
+	target, err = money.ParsePrice(params[0])
 	if err != nil { return }
+	OrderPrintPrice(target)
+
+	var size money.Money
+	size, err = money.ParseMoney(params[1])
+	if err != nil { return }
+
 	if (size.Currency() != target.Currency1()) &&
 			(size.Currency() != target.Currency2()) {
-		err = fmt.Errorf("currency of \"-order\" should be %q or %q",
+		err = fmt.Errorf("order size should be in %q or %q",
 			target.Currency1(), target.Currency2())
 		return
 	}
-	delete(params, "order")
 
 	match_target := func(a, b money.Money) bool {
 		if a.Currency() != target.Currency1() { return false }
