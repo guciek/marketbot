@@ -31,39 +31,6 @@ func percentValue(s string) (decimal.Decimal, error) {
 	return v, nil
 }
 
-func addAmountFromGain(param string) (func(Order) money.Money, error) {
-	if v, err := percentValue(param); err == nil {
-		if ! v.Less(decimal.Value(1)) {
-			return nil, fmt.Errorf("invalid value of \"-gain\"")
-		}
-		return func(o Order) money.Money {
-			return o.buy.Mult(v)
-		}, nil
-	}
-
-	if pr, err := money.ParsePrice(param); err == nil {
-		return func(o Order) money.Money {
-			if (o.buy.Currency() == pr.Currency1()) &&
-					(o.sell.Currency() == pr.Currency2()) {
-				return o.sell.MultPrice(pr, 5)
-			}
-			if (o.sell.Currency() == pr.Currency1()) &&
-					(o.buy.Currency() == pr.Currency2()) {
-				m := o.buy.MultPrice(pr, 12)
-				if ! m.LessNotSimilar(o.sell) {
-					return money.Money {}
-				}
-				trans_pr := o.buy.DivPrice(o.sell.Sub(m))
-				return o.sell.MultPrice(trans_pr, 5).Sub(o.buy)
-			}
-			panic("minimum gain "+pr.String()+
-				" is not applicable to order: "+o.String())
-		}, nil
-	}
-
-	return nil, fmt.Errorf("invalid value of \"-gain\"")
-}
-
 func PlanOrders(params map[string][]string) (OrderPlanner, error) {
 	if params["test"] != nil {
 		balance := make([]money.Money, 0, 10)
@@ -106,21 +73,20 @@ func PlanOrders(params map[string][]string) (OrderPlanner, error) {
 	}
 
 	if len(params["place"]) > 1 {
-		return OrderPlanner {}, fmt.Errorf("invalid value of \"-place\"")
+		return OrderPlanner {}, fmt.Errorf("multiple values of \"-place\"")
 	}
 	var place int64 = 3
 	for _, p := range params["place"] {
 		var err error
 		place, err = strconv.ParseInt(p, 10, 64)
-		if err != nil { return OrderPlanner {}, err }
-		if place < 1 {
+		if (err != nil) || (place < 1) {
 			return OrderPlanner {}, fmt.Errorf("invalid value of \"-place\"")
 		}
 	}
 	delete(params, "place")
 
 	if len(params["fee"]) > 1 {
-		return OrderPlanner {}, fmt.Errorf("invalid value of \"-fee\"")
+		return OrderPlanner {}, fmt.Errorf("multiple values of \"-fee\"")
 	}
 	fee_mult := decimal.Value(1)
 	for _, s := range params["fee"] {
@@ -133,47 +99,46 @@ func PlanOrders(params map[string][]string) (OrderPlanner, error) {
 	}
 	delete(params, "fee")
 
-	var gain_adders []func(o Order) money.Money
-	for _, p := range params["mingain"] {
-		for _, s := range strings.Split(p, ",") {
-			adder, err := addAmountFromGain(s)
-			if err != nil { return OrderPlanner {}, err }
-			gain_adders = append(gain_adders, adder)
+	if len(params["gain"]) > 1 {
+		return OrderPlanner {}, fmt.Errorf("multiple values of \"-gain\"")
+	}
+	var gain decimal.Decimal
+	for _, p := range params["gain"] {
+		var err error
+		gain, err = percentValue(p)
+		if (err != nil) || (! gain.Less(decimal.Value(1))) {
+			return OrderPlanner {}, fmt.Errorf("invalid value of \"-gain\"")
 		}
 	}
-	delete(params, "mingain")
+	delete(params, "gain")
 
 	for p, _ := range params {
 		return OrderPlanner {}, fmt.Errorf("unrecognized parameter %q", "-"+p)
 	}
 
 	generate := func(b1, b2 money.Money,
-			next func(a1, a2 money.Money) Order) (ret []Order) {
-		for k := int64(0); k < place; k++ {
+			next func(a1, a2 money.Money) Order) ([]Order) {
+		var ret []Order
+		for int64(len(ret)) < place {
 			o := next(b1, b2)
 			if o.buy.IsNull() { break }
 			if o.sell.IsNull() { break }
 			if ! o.sell.LessNotSimilar(b2) { break }
-			{
-				max_add := o.buy.Zero()
-				for _, adder := range gain_adders {
-					add := adder(o)
-					if add.IsNull() { return }
-					if max_add.LessNotEqual(add) { max_add = add }
-				}
-				o.buy = o.buy.Add(max_add)
-			}
-			b2 = b2.Sub(o.sell)
-			b1 = b1.Add(o.buy)
-			o.buy = o.buy.Mult(fee_mult)
-			ret = append(ret, o)
-			if len(ret) >= 2 {
-				if ! SortOrdersByPriority(ret).Less(len(ret)-2, len(ret)-1) {
+			o.buy = o.buy.Add(o.buy.Mult(gain))
+			if len(ret) >= 1 {
+				prev := &(ret[len(ret)-1])
+				if ! prev.buy.DivPrice(prev.sell).Less(o.buy.DivPrice(o.sell)) {
 					panic("assertion failed")
 				}
 			}
+			b1 = b1.Add(o.buy)
+			b2 = b2.Sub(o.sell)
+			ret = append(ret, o)
 		}
-		return
+		for i := range ret {
+			ret[i].buy = ret[i].buy.Mult(fee_mult)
+		}
+		return ret
 	}
 
 	return OrderPlanner {

@@ -69,10 +69,9 @@ func main() {
 			"\t"+n+" -natural 12.34abc/xyz,1.23abc <market>\n"+
 			"\n"+
 			"Other options:\n"+
-			"\t-fee 0.12%%            Compensate for transaction fee\n"+
-			"\t-mingain 1.23%%        Minimum gain for each transaction\n"+
-			"\t-mingain 1.23abc/xyz   Minimum gain for each transaction\n"+
-			"\t-test 123abc,4.5xyz    Calculate orders and exit\n"+
+			"\t-fee 0.12%%              Compensate for transaction fee\n"+
+			"\t-gain 1.23%%             Percentage gain for each transaction\n"+
+			"\t-test 123abc,4.5xyz     Calculate orders and exit\n"+
 			"\n",
 		)
 		return
