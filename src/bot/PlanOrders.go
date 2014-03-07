@@ -75,10 +75,10 @@ func PlanOrders(params map[string][]string) (OrderPlanner, error) {
 	if len(params["place"]) > 1 {
 		return OrderPlanner {}, fmt.Errorf("multiple values of \"-place\"")
 	}
-	var place int64 = 3
+	var place = 3
 	for _, p := range params["place"] {
-		var err error
-		place, err = strconv.ParseInt(p, 10, 64)
+		v, err := strconv.ParseInt(p, 10, 32)
+		place = int(v)
 		if (err != nil) || (place < 1) {
 			return OrderPlanner {}, fmt.Errorf("invalid value of \"-place\"")
 		}
@@ -112,14 +112,41 @@ func PlanOrders(params map[string][]string) (OrderPlanner, error) {
 	}
 	delete(params, "gain")
 
+	var cashout []money.Money
+	for _, p := range params["cashout"] {
+		for _, s := range strings.Split(p, ",") {
+			m, err := money.ParseMoney(s)
+			if err != nil {
+				return OrderPlanner {},
+					fmt.Errorf("invalid value of \"-cashout\"")
+			}
+			cashout = append(cashout, m)
+		}
+	}
+	delete(params, "cashout")
+
 	for p, _ := range params {
 		return OrderPlanner {}, fmt.Errorf("unrecognized parameter %q", "-"+p)
 	}
 
 	generate := func(b1, b2 money.Money,
 			next func(a1, a2 money.Money) Order) ([]Order) {
+		sub_cashout := func() func(v *money.Money) {
+			co_filled := make([]bool, len(cashout))
+			return func(v *money.Money) {
+				for i, co := range cashout {
+					if co.Currency() != v.Currency() { continue }
+					if co_filled[i] { continue }
+					if ! co.LessNotSimilar(*v) { break }
+					*v = (*v).Sub(co)
+					co_filled[i] = true
+				}
+			}
+		}()
+		sub_cashout(&b2)
 		var ret []Order
-		for int64(len(ret)) < place {
+		for len(ret) < place+1 {
+			sub_cashout(&b1)
 			o := next(b1, b2)
 			if o.buy.IsNull() { break }
 			if o.sell.IsNull() { break }
@@ -127,13 +154,23 @@ func PlanOrders(params map[string][]string) (OrderPlanner, error) {
 			o.buy = o.buy.Add(o.buy.Mult(gain))
 			if len(ret) >= 1 {
 				prev := &(ret[len(ret)-1])
-				if ! prev.buy.DivPrice(prev.sell).Less(o.buy.DivPrice(o.sell)) {
-					panic("assertion failed")
+				prev_pr := prev.buy.DivPrice(prev.sell)
+				if prev_pr.Less(o.buy.DivPrice(o.sell)) {
+					ret = append(ret, o)
+				} else {
+					a := o.sell.MultPricePrecision(prev_pr, 8).Sub(o.buy)
+					o.buy = o.buy.Add(a)
+					prev.buy = prev.buy.Add(o.buy)
+					prev.sell = prev.sell.Add(o.sell)
 				}
+			} else {
+				ret = append(ret, o)
 			}
 			b1 = b1.Add(o.buy)
 			b2 = b2.Sub(o.sell)
-			ret = append(ret, o)
+		}
+		if len(ret) >= place {
+			ret = ret[0:place]
 		}
 		for i := range ret {
 			ret[i].buy = ret[i].buy.Mult(fee_mult)

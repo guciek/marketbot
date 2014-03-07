@@ -139,7 +139,7 @@ def cmdLine(market, line, passTime, getTime):
 		return True
 
 	if line[0] == "wait":
-		passTime(60)
+		passTime(300)
 		print("ok wait")
 		return True
 
