@@ -72,9 +72,6 @@ func PlanOrders(params map[string][]string) (OrderPlanner, error) {
 		return OrderPlanner {}, fmt.Errorf("planning type not specified")
 	}
 
-	if len(params["place"]) > 1 {
-		return OrderPlanner {}, fmt.Errorf("multiple values of \"-place\"")
-	}
 	var place = 3
 	for _, p := range params["place"] {
 		v, err := strconv.ParseInt(p, 10, 32)
@@ -188,10 +185,15 @@ func PlanOrders(params map[string][]string) (OrderPlanner, error) {
 			}
 			ret := make([]Order, 0, place*2)
 			for _, m1 := range sum {
+				added := false
 				for _, m2 := range sum {
 					if m1.Currency() == m2.Currency() { continue }
 					for _, planner := range planners {
-						ret = append(ret, generate(m1, m2, planner)...)
+						a := generate(m1, m2, planner)
+						if len(a) < 1 { continue }
+						if added { panic("planners conflict with each other") }
+						added = true
+						ret = append(ret, a...)
 					}
 				}
 			}
