@@ -163,5 +163,10 @@ def run():
 
 try:
 	run()
+except IOError:
+	pass
+except KeyboardInterrupt:
+	pass
 except Exception as e:
 	sys.stderr.write("Error: "+str(e)+"\n")
+	sys.stderr.flush()
