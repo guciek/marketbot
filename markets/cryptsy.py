@@ -158,13 +158,13 @@ def cmdLine(market, line):
 			for k in r["balances_available"]:
 				val = str(r["balances_available"][k])
 				cur = str(k)
-				if cur.isalpha() and (len(cur) <= 5):
+				if cur.isalpha() and (len(cur) <= 10):
 					print(val+" "+cur)
 		if "balances_hold" in r:
 			for k in r["balances_hold"]:
 				val = str(r["balances_hold"][k])
 				cur = str(k)
-				if cur.isalpha() and (len(cur) <= 5):
+				if cur.isalpha() and (len(cur) <= 10):
 					print(val+" "+cur)
 		print(".")
 		return True

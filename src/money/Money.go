@@ -41,7 +41,7 @@ func ParseMoney(s string) (Money, error) {
 	if currency.Len() < 1 {
 		return Money {}, fmt.Errorf("missing currency")
 	}
-	if currency.Len() > 5 {
+	if currency.Len() > 16 {
 		return Money {}, fmt.Errorf("currency name too long")
 	}
 	v_decimal, err := decimal.ParseDecimal(value)

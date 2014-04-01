@@ -71,7 +71,7 @@ func main() {
 			"Other options:\n"+
 			"\t-fee 0.12%%              Compensate for transaction fee\n"+
 			"\t-gain 1.23%%             Percentage gain for each transaction\n"+
-			"\t-cashout 123abc         Reserve this amount if reached\n"+
+			"\t-cashout 123abc         Subtract this amount if reached\n"+
 			"\t-test 123abc,4.5xyz     Calculate orders and exit\n"+
 			"\n",
 		)
