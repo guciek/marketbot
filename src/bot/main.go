@@ -65,14 +65,19 @@ func main() {
 		fmt.Fprintf(
 			os.Stderr,
 			"\nUsage:\n"+
-			"\t"+n+" -balance abc/xyz,1.23abc <market>\n"+
-			"\t"+n+" -natural 12.34abc/xyz,1.23abc <market>\n"+
+			"\t"+n+" [options] <market>\n"+
+			"\t"+n+" [options] -test 123abc,4.5xyz\n"+
+			"\n"+
+			"Strategy options:\n"+
+			"\t-balance abc/xyz,1.23abc <market>\n"+
+			"\t-natural 12.3abc/xyz,1.23abc <market>\n"+
+			"\t-buy 12.3abc/xyz,1.23abc <market>\n"+
+			"\t-sell 23.4abc/xyz,1.23abc <market>\n"+
 			"\n"+
 			"Other options:\n"+
 			"\t-fee 0.12%%              Compensate for transaction fee\n"+
 			"\t-gain 1.23%%             Percentage gain for each transaction\n"+
 			"\t-cashout 123abc         Subtract this amount if reached\n"+
-			"\t-test 123abc,4.5xyz     Calculate orders and exit\n"+
 			"\n",
 		)
 		return

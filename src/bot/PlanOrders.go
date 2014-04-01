@@ -68,6 +68,20 @@ func PlanOrders(params map[string][]string) (OrderPlanner, error) {
 	}
 	delete(params, "natural")
 
+	for _, p := range params["buy"] {
+		n, err := PlanOrders_Buy(p)
+		if err != nil { return OrderPlanner {}, err }
+		planners = append(planners, n)
+	}
+	delete(params, "buy")
+
+	for _, p := range params["sell"] {
+		n, err := PlanOrders_Sell(p)
+		if err != nil { return OrderPlanner {}, err }
+		planners = append(planners, n)
+	}
+	delete(params, "sell")
+
 	if len(planners) < 1 {
 		return OrderPlanner {}, fmt.Errorf("planning type not specified")
 	}
@@ -184,9 +198,9 @@ func PlanOrders(params map[string][]string) (OrderPlanner, error) {
 				}
 			}
 			ret := make([]Order, 0, place*2)
-			for _, m1 := range sum {
+			for _, m2 := range sum {
 				added := false
-				for _, m2 := range sum {
+				for _, m1 := range sum {
 					if m1.Currency() == m2.Currency() { continue }
 					for _, planner := range planners {
 						a := generate(m1, m2, planner)
