@@ -76,7 +76,7 @@ func runUpdateInfo(market MarketController,
 			if aa.LessNotSimilar(b[aa.Currency()]) { return true }
 		}
 		for _, bb := range b {
-			if a[bb.Currency()].IsNull() { return false }
+			if a[bb.Currency()].IsNull() { continue }
 			if bb.LessNotSimilar(a[bb.Currency()]) { return false }
 		}
 		return true
