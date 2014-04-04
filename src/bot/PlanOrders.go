@@ -123,18 +123,30 @@ func PlanOrders(params map[string][]string) (OrderPlanner, error) {
 	}
 	delete(params, "gain")
 
-	var cashout []money.Money
-	for _, p := range params["cashout"] {
-		for _, s := range strings.Split(p, ",") {
-			m, err := money.ParseMoney(s)
-			if err != nil {
-				return OrderPlanner {},
-					fmt.Errorf("invalid value of \"-cashout\"")
-			}
-			cashout = append(cashout, m)
+	minprice := make(map[string]money.Price)
+	for _, p := range params["maxbuy"] {
+		v, err := money.ParsePrice(p)
+		if err != nil {
+			return OrderPlanner {}, fmt.Errorf("invalid value of \"-maxbuy\"")
+		}
+		v = v.Inverse()
+		pair := v.Currency1()+"/"+v.Currency2()
+		if minprice[pair].IsNull() || minprice[pair].Less(v) {
+			minprice[pair] = v
 		}
 	}
-	delete(params, "cashout")
+	delete(params, "maxbuy")
+	for _, p := range params["minsell"] {
+		v, err := money.ParsePrice(p)
+		if err != nil {
+			return OrderPlanner {}, fmt.Errorf("invalid value of \"-minsell\"")
+		}
+		pair := v.Currency1()+"/"+v.Currency2()
+		if minprice[pair].IsNull() || minprice[pair].Less(v) {
+			minprice[pair] = v
+		}
+	}
+	delete(params, "minsell")
 
 	for p, _ := range params {
 		return OrderPlanner {}, fmt.Errorf("unrecognized parameter %q", "-"+p)
@@ -142,22 +154,8 @@ func PlanOrders(params map[string][]string) (OrderPlanner, error) {
 
 	generate := func(b1, b2 money.Money,
 			next func(a1, a2 money.Money) Order) ([]Order) {
-		sub_cashout := func() func(v *money.Money) {
-			co_filled := make([]bool, len(cashout))
-			return func(v *money.Money) {
-				for i, co := range cashout {
-					if co.Currency() != v.Currency() { continue }
-					if co_filled[i] { continue }
-					if ! co.LessNotSimilar(*v) { break }
-					*v = (*v).Sub(co)
-					co_filled[i] = true
-				}
-			}
-		}()
-		sub_cashout(&b2)
 		var ret []Order
 		for len(ret) < place+1 {
-			sub_cashout(&b1)
 			o := next(b1, b2)
 			if o.buy.IsNull() { break }
 			if o.sell.IsNull() { break }
@@ -175,6 +173,11 @@ func PlanOrders(params map[string][]string) (OrderPlanner, error) {
 					prev.sell = prev.sell.Add(o.sell)
 				}
 			} else {
+				min_pr := minprice[b1.Currency()+"/"+b2.Currency()]
+				if ! min_pr.IsNull() {
+					a := o.sell.MultPricePrecision(min_pr, 8).Sub(o.buy)
+					o.buy = o.buy.Add(a)
+				}
 				ret = append(ret, o)
 			}
 			b1 = b1.Add(o.buy)

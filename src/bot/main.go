@@ -69,15 +69,16 @@ func main() {
 			"\t"+n+" [options] -test 123abc,4.5xyz\n"+
 			"\n"+
 			"Strategy options:\n"+
-			"\t-balance abc/xyz,1.23abc <market>\n"+
-			"\t-natural 12.3abc/xyz,1.23abc <market>\n"+
-			"\t-buy 12.3abc/xyz,1.23abc <market>\n"+
-			"\t-sell 23.4abc/xyz,1.23abc <market>\n"+
+			"\t-balance abc/xyz,1.23abc\n"+
+			"\t-natural 12.3abc/xyz,1.23abc\n"+
+			"\t-buy 12.3abc/xyz,1.23abc\n"+
+			"\t-sell 23.4abc/xyz,1.23abc\n"+
 			"\n"+
 			"Other options:\n"+
 			"\t-fee 0.12%%              Compensate for transaction fee\n"+
 			"\t-gain 1.23%%             Percentage gain for each transaction\n"+
-			"\t-cashout 123abc         Subtract this amount if reached\n"+
+			"\t-maxbuy 12.3abc/xyz     Maximum buy price\n"+
+			"\t-minsell 23.4abc/xyz    Minimum sell price\n"+
 			"\n",
 		)
 		return
