@@ -8,20 +8,24 @@ import hmac
 import hashlib
 from urllib import parse, request
 
-class Cryptsy:
+class Btce:
 	def __init__(self, api_key, api_secret):
 		self.__api_key = str(api_key).strip()
 		self.__api_secret = bytes(str(api_secret).strip(), "ascii")
-		self.__api_url = "https://www.cryptsy.com/api"
-		self.__tradingpairs = None
+		self.__api_url = "https://btc-e.com/tapi"
 
 	def __q(self, fun, args = {}):
 		try:
+			try:
+				time.sleep(1)
+			except:
+				pass
 			args['nonce'] = int(time.time())
 			args['method'] = fun
 			post_data = bytes(parse.urlencode(args), "utf-8")
 			sign = hmac.new(self.__api_secret, post_data, hashlib.sha512).hexdigest()
 			headers = {
+				'Content-type': "application/x-www-form-urlencoded",
 				'Key' : self.__api_key,
 				'Sign': sign,
 				'User-Agent': "Mozilla/4.0 (compatible; trading bot)"
@@ -37,6 +41,8 @@ class Cryptsy:
 			if "success" not in ret:
 				raise Exception("wrong response format")
 			if int(ret["success"]) != 1:
+				if (fun == "ActiveOrders") and (str(ret["error"]) == "no orders"):
+					return {}
 				raise Exception(str(ret["error"]))
 			if "return" in ret:
 				return ret["return"]
@@ -45,39 +51,24 @@ class Cryptsy:
 			raise Exception("API request failed: "+str(e))
 
 	def getTradingPairs(self):
-		if self.__tradingpairs == None:
-			r = self.__q("getmarkets")
-			pairs = dict()
-			self.__pairbyid = dict()
-			for m in r:
-				pairname = (str(m["primary_currency_code"])+"_"+
-					str(m["secondary_currency_code"])).upper()
-				mid = str(m["marketid"])
-				pairs[pairname] = mid
-				self.__pairbyid[mid] = pairname
-			self.__tradingpairs_set = set(pairs.keys())
-			self.__tradingpairs = pairs
-		return self.__tradingpairs_set
+		return set(["BTC_USD"])
 
-	def getFunds(self):
-		return self.__q("getinfo")
+	def getInfo(self):
+		return self.__q("getInfo")
 
 	def getOrders(self):
-		self.getTradingPairs()
-		r = self.__q("allmyorders")
+		r = self.__q("ActiveOrders")
 		for o in r:
-			o["pair"] = self.__pairbyid[str(o["marketid"])]
+			r[o]["pair"] = r[o]["pair"].upper()
 		return r
 
 	def placeOrder(self, pair, tpe, amount, price):
-		self.getTradingPairs()
-		marketid = self.__tradingpairs[pair]
-		args = {"marketid": str(marketid), "ordertype": str(tpe),
-			"quantity": str(amount), "price": ("%.15f"%float(price))}
-		return self.__q("createorder", args)
+		args = {"pair": str(pair).lower(), "type": str(tpe),
+			"amount": ("%.8f"%float(amount)), "rate": ("%.2f"%float(price))}
+		return self.__q("Trade", args)
 
 	def cancelOrder(self, oid):
-		return self.__q("cancelorder", {"orderid": str(oid)})
+		return self.__q("CancelOrder", {"order_id": str(oid)})
 
 def cmdLine(market, line):
 	if line == "": return False
@@ -105,11 +96,11 @@ def cmdLine(market, line):
 		am2 = line[4]
 		cur2 = line[5].upper()
 		trading_pairs = market.getTradingPairs()
-		tpe = "Buy"
+		tpe = "buy"
 		if cur2+"_"+cur1 in trading_pairs:
 			am1, am2 = am2, am1
 			cur1, cur2 = cur2, cur1
-			tpe = "Sell"
+			tpe = "sell"
 		if cur1+"_"+cur2 in trading_pairs:
 			pr = float(am2)/float(am1)
 			market.placeOrder(cur1+"_"+cur2, tpe, am1, pr)
@@ -126,17 +117,18 @@ def cmdLine(market, line):
 	if line[0] == "orders":
 		r = market.getOrders()
 		print("orders:")
-		for o in r:
-			oid = str(o["orderid"])
+		for oid in r:
+			o = r[oid]
 			currencies = str(o["pair"]).split("_")
-			amounts = [str(o["quantity"]), str(o["total"])]
-			if str(o["ordertype"]) == "Buy":
+			amounts = [str(o["amount"]),
+				str(float(o["amount"])*float(o["rate"]))]
+			if str(o["type"]) == "buy":
 				print("%s buy %s %s for %s %s" % (
 					oid,
 					amounts[0], currencies[0],
 					amounts[1], currencies[1]
 				))
-			elif str(o["ordertype"]) == "Sell":
+			elif str(o["type"]) == "sell":
 				print("%s buy %s %s for %s %s" % (
 					oid,
 					amounts[1], currencies[1],
@@ -148,20 +140,25 @@ def cmdLine(market, line):
 		return True
 
 	elif line[0] == "totalbalance":
-		r = market.getFunds()
+		r1 = market.getInfo()
+		r2 = market.getOrders()
 		print("totalbalance:")
-		if "balances_available" in r:
-			for k in r["balances_available"]:
-				val = str(r["balances_available"][k])
-				cur = str(k)
-				if cur.isalpha() and (len(cur) <= 10):
-					print(val+" "+cur)
-		if "balances_hold" in r:
-			for k in r["balances_hold"]:
-				val = str(r["balances_hold"][k])
-				cur = str(k)
-				if cur.isalpha() and (len(cur) <= 10):
-					print(val+" "+cur)
+		for k in r1["funds"]:
+			val = str(r1["funds"][k])
+			cur = str(k)
+			if cur.isalpha() and (len(cur) <= 10) and (val != "0"):
+				print(val+" "+cur.upper())
+		for oid in r2:
+			o = r2[oid]
+			currencies = str(o["pair"]).split("_")
+			amounts = [str(o["amount"]),
+				str(float(o["amount"])*float(o["rate"]))]
+			if str(o["type"]) == "buy":
+				print(amounts[1]+" "+currencies[1])
+			elif str(o["type"]) == "sell":
+				print(amounts[0]+" "+currencies[0])
+			else:
+				print("unknown order type ", o["ordertype"])
 		print(".")
 		return True
 
@@ -173,16 +170,12 @@ def cmdLine(market, line):
 	return True
 
 def run():
-	b = Cryptsy(sys.argv[1], sys.argv[2])
+	b = Btce(sys.argv[1], sys.argv[2])
 	for line in sys.stdin:
 		try:
 			if not cmdLine(b, line.strip()):
 				break
 			sys.stdout.flush()
-			try:
-				time.sleep(1)
-			except:
-				pass
 		except IOError:
 			raise
 		except KeyboardInterrupt:
