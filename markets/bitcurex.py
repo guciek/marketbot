@@ -137,7 +137,7 @@ def cmdLine(market, line):
 			else:
 				raise Exception("unknown order type")
 		print("totalbalance:")
-		print("%.5f PLN" % sum_pln)
+		print("%.8f PLN" % sum_pln)
 		print("%.8f BTC" % sum_btc)
 		print(".")
 		return True
