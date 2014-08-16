@@ -10,3 +10,4 @@ MODULES := $(shell ls src)
 bot: Makefile $(SRCFILES)
 	@go test $(MODULES)
 	@go build $@
+	@strip $@
