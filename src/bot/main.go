@@ -75,10 +75,11 @@ func main() {
 			"\t-sell 23.4abc/xyz,1.23abc\n"+
 			"\n"+
 			"Other options:\n"+
+			"\t-add 12abc,3.4xyz       Include other funds in calculations\n"+
 			"\t-fee 0.12%%              Compensate for transaction fee\n"+
-			"\t-gain 1.23%%             Percentage gain for each transaction\n"+
 			"\t-maxbuy 12.3abc/xyz     Maximum buy price\n"+
 			"\t-minsell 23.4abc/xyz    Minimum sell price\n"+
+			"\t-place 12               Number of orders to place\n"+
 			"\n",
 		)
 		return

@@ -110,19 +110,6 @@ func PlanOrders(params map[string][]string) (OrderPlanner, error) {
 	}
 	delete(params, "fee")
 
-	if len(params["gain"]) > 1 {
-		return OrderPlanner {}, fmt.Errorf("multiple values of \"-gain\"")
-	}
-	var gain decimal.Decimal
-	for _, p := range params["gain"] {
-		var err error
-		gain, err = percentValue(p)
-		if (err != nil) || (! gain.Less(decimal.Value(1))) {
-			return OrderPlanner {}, fmt.Errorf("invalid value of \"-gain\"")
-		}
-	}
-	delete(params, "gain")
-
 	minprice := make(map[string]money.Price)
 	for _, p := range params["maxbuy"] {
 		v, err := money.ParsePrice(p)
@@ -136,6 +123,7 @@ func PlanOrders(params map[string][]string) (OrderPlanner, error) {
 		}
 	}
 	delete(params, "maxbuy")
+
 	for _, p := range params["minsell"] {
 		v, err := money.ParsePrice(p)
 		if err != nil {
@@ -148,6 +136,16 @@ func PlanOrders(params map[string][]string) (OrderPlanner, error) {
 	}
 	delete(params, "minsell")
 
+	addother := make(map[string]money.Money)
+	for _, param := range params["add"] {
+		for _, s := range strings.Split(param, ",") {
+			m, err := money.ParseMoney(s)
+			if err != nil { return OrderPlanner {}, err }
+			addother[m.Currency()] = m.Add(addother[m.Currency()])
+		}
+	}
+	delete(params, "add")
+
 	for p, _ := range params {
 		return OrderPlanner {}, fmt.Errorf("unrecognized parameter %q", "-"+p)
 	}
@@ -156,11 +154,13 @@ func PlanOrders(params map[string][]string) (OrderPlanner, error) {
 			next func(a1, a2 money.Money) Order) ([]Order) {
 		var ret []Order
 		for len(ret) < place+1 {
-			o := next(b1, b2)
+			o := next(
+				b1.Add(addother[b1.Currency()]),
+				b2.Add(addother[b2.Currency()]),
+			)
 			if o.buy.IsNull() { break }
 			if o.sell.IsNull() { break }
 			if ! o.sell.LessNotSimilar(b2) { break }
-			o.buy = o.buy.Add(o.buy.Mult(gain))
 			if len(ret) >= 1 {
 				prev := &(ret[len(ret)-1])
 				prev_pr := prev.buy.DivPrice(prev.sell)
